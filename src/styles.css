@@ -883,10 +883,11 @@ body {
 .hidden-emu-webgl {
   position: fixed;
   top: 0;
-  left: -2000px;
+  left: 0;
   width: 400px;
   height: 480px;
   pointer-events: none;
+  z-index: -1;
 }
 
 /* ==========================================================================

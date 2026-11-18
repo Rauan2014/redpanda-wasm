@@ -111,6 +111,8 @@ const emulator = new Panda3DSEmulator({
     if (line.includes('Loaded an encrypted ROM')) {
       exitEmulatorView();
       setStatus('ROM .3ds criptografada: o Panda3DS no navegador precisa de ROM descriptografada (.3ds/.cci/.cxi ou .3dsx).');
+    } else if (line.includes('[FATAL]') && !line.includes('SDMC::OpenArchive')) {
+      setStatus(line.replace(/\x1b\[[0-9;]*m/g, ''));
     }
   },
   onAbort: (reason) => {
