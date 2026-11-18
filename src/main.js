@@ -5,19 +5,19 @@ import { CartridgeBanner3D } from './cartridge3d.js';
 import { SaveManager } from './saves.js';
 import { Panda3DSEmulator } from './emulator.js';
 
-const DEMO_ROM_URL = '/roms/flappy.3dsx';
-const DEMO_ROM_NAME = 'flappy.3dsx';
+const DEMO_ROM_URL = '/roms/blockblast.3dsx';
+const DEMO_ROM_NAME = 'blockblast.3dsx';
 
 const state = {
   selectedSlotId: 'demo',
   demoRomBytes: null,
   demoMeta: {
     id: 'demo',
-    title: 'Flappy Bird',
-    cartTitle: 'FLAPPY 3DS',
-    serial: 'CTR-P-FLAP',
+    title: 'Block Blast',
+    cartTitle: 'BLOCK BLAST',
+    serial: 'CTR-P-BLOC',
     iconCanvas: null,
-    palette: { bgTop: '#0284c7', bgBottom: '#075985', text: '#ffffff' },
+    palette: { bgTop: '#1d4ed8', bgBottom: '#0f172a', text: '#ffffff' },
   },
   customRomBytes: null,
   customRomName: null,
@@ -114,7 +114,7 @@ const emulator = new Panda3DSEmulator({
     } else if (line.includes('Should raise coproc exception')) {
       exitEmulatorView();
       setStatus('ROM incompatível com o interpretador WASM atual (instrução de coprocessador ARM não suportada). Teste uma ROM homebrew como Flappy Bird (DEMO).');
-    } else if (line.includes('[FATAL]') && !line.includes('SDMC::OpenArchive')) {
+    } else if (line.includes('[FATAL]') && !line.includes('SDMC::OpenArchive') && !line.includes('RenameFile')) {
       setStatus(line.replace(/\x1b\[[0-9;]*m/g, ''));
     }
   },

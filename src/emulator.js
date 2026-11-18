@@ -424,16 +424,29 @@ export class Panda3DSEmulator {
       this.#emuCanvas.dispatchEvent(evt);
     };
 
+    this.#bottomCanvas.addEventListener('pointerenter', (e) => {
+      if (!this.#running) return;
+      dispatchMouse('mouseenter', e.clientX, e.clientY, 0);
+      dispatchMouse('mousemove', e.clientX, e.clientY, 0);
+    });
+
     this.#bottomCanvas.addEventListener('pointerdown', (e) => {
       if (!this.#running) return;
       activePointerId = e.pointerId;
       try { this.#bottomCanvas.setPointerCapture(e.pointerId); } catch {}
+      // Emscripten SDL2 requires mousemove/mouseenter coordinates on #canvas prior to mousedown
+      dispatchMouse('mouseenter', e.clientX, e.clientY, 0);
+      dispatchMouse('mousemove', e.clientX, e.clientY, 0);
       dispatchMouse('mousedown', e.clientX, e.clientY, 1);
     });
 
     this.#bottomCanvas.addEventListener('pointermove', (e) => {
-      if (!this.#running || activePointerId !== e.pointerId) return;
-      dispatchMouse('mousemove', e.clientX, e.clientY, 1);
+      if (!this.#running) return;
+      if (activePointerId === e.pointerId) {
+        dispatchMouse('mousemove', e.clientX, e.clientY, 1);
+      } else if (activePointerId === null) {
+        dispatchMouse('mousemove', e.clientX, e.clientY, 0);
+      }
     });
 
     const endTouch = (e) => {

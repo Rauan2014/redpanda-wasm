@@ -7,7 +7,7 @@ Emulador de Nintendo 3DS rodando 100% no navegador (client-side via WebAssembly 
 - `scripts/build-wasm.sh`: Script automatizado para verificar/instalar o `emsdk`, clonar `wheremyfoodat/Panda3DS` (`--recursive`), configurar via `emcmake cmake` com flags WebGL2/SDL2/pthreads/IDBFS e copiar `.js`, `.wasm` e `.worker.js` para `public/wasm/`.
 - `scripts/serve.mjs`: Servidor estático local para `dist/` com headers COOP/COEP e MIME `application/wasm`.
 - `public/wasm/`: Artefatos WebAssembly do núcleo Panda3DS (`Panda3DS.js`, `Panda3DS.wasm`, `Panda3DS.worker.js`).
-- `public/roms/`: Contém `flappy.3dsx` (481 KB, homebrew open-source MIT `MillKeny/flappy`) como ROM demo pré-carregada pronta para jogar.
+- `public/roms/`: Contém `blockblast.3dsx` (214 KB, homebrew open-source Zlib `TheFilipcom4607/BlockBlast-3DS`) como ROM demo pré-carregada pronta para jogar nas duas telas.
 - `src/`: Front-end modular em Vite + Three.js + JSZip (`main.js`, `cartridge3d.js`, `emulator.js`, `saves.js`, `romParser.js`, `audio.js`, `styles.css`).
 - `vercel.json`: Configura `Cross-Origin-Opener-Policy: same-origin` e `Cross-Origin-Embedder-Policy: require-corp` em todas as rotas para habilitar `SharedArrayBuffer` (`window.crossOriginIsolated === true`).
 
