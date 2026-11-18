@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panda3DS Web — Nintendo 3DS HOME Menu</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1320'/%3E%3Crect x='5' y='4' width='22' height='11' rx='2' fill='%2338bdf8'/%3E%3Crect x='7' y='18' width='18' height='10' rx='2' fill='%23e2e8f0'/%3E%3C/svg%3E">
+</head>
+<body>
+  <main class="page-shell">
+    <h1 class="visually-hidden">Emulador Nintendo 3DS WebAssembly — Panda3DS HOME Menu</h1>
+
+    <!-- Console Nintendo 3DS -->
+    <section class="n3ds-console" aria-label="Console Nintendo 3DS">
+      <!-- Tampa Superior -->
+      <div class="n3ds-top-lid">
+        <div class="lid-camera-row" aria-hidden="true">
+          <span class="camera-dot"></span>
+          <span class="camera-lens"></span>
+          <span class="camera-dot"></span>
+        </div>
+
+        <div class="top-deck-row">
+          <!-- Grade de alto-falante esquerda -->
+          <div class="speaker-grille" aria-hidden="true">
+            <span></span><span></span><span></span>
+            <span></span><span></span><span></span>
+          </div>
+
+          <!-- Tela Superior (Proporção 400x240) -->
+          <div class="top-screen-bezel">
+            <div class="screen-top" id="top-screen">
+              <!-- Barra de status do 3DS -->
+              <header class="top-status-bar">
+                <div class="status-left">
+                  <span class="badge-wasm">WASM</span>
+                  <span class="badge-coi" id="coi-badge" title="Status de Cross-Origin Isolation">COI</span>
+                </div>
+
+                <div class="status-right">
+                  <button
+                    type="button"
+                    class="status-icon-btn"
+                    id="motion-toggle-btn"
+                    aria-label="Pausar rotação 3D"
+                    title="Pausar ou retomar rotação 3D"
+                  >
+                    ❚❚
+                  </button>
+                  <button
+                    type="button"
+                    class="status-icon-btn"
+                    id="audio-toggle-btn"
+                    aria-label="Silenciar efeitos sonoros"
+                    title="Ativar ou silenciar som"
+                  >
+                    ♪
+                  </button>
+                  <time class="status-clock" id="status-clock">--:--</time>
+                  <span class="battery-meter" id="battery-meter" aria-label="Bateria carregada">
+                    <span class="battery-bars" id="battery-bars">
+                      <i></i><i></i><i></i><i></i>
+                    </span>
+                    <span class="battery-cap" aria-hidden="true"></span>
+                  </span>
+                </div>
+              </header>
+
+              <!-- Palco 3D do Cartucho (baixa resolução 200x120 pixelada) -->
+              <div class="banner-stage" id="banner-stage">
+                <canvas
+                  id="cartridge-canvas"
+                  width="200"
+                  height="120"
+                  aria-label="Banner 3D interativo do cartucho Nintendo 3DS"
+                ></canvas>
+              </div>
+
+              <!-- Pill inferior com nome do aplicativo selecionado -->
+              <div class="top-app-pill" id="top-app-pill" aria-live="polite">
+                <span class="pill-serial" id="pill-serial">CTR-P-FLAP</span>
+                <span class="pill-title" id="pill-title">Flappy Bird</span>
+              </div>
+
+              <!-- Canvas espelhado da metade superior do emulador (400x240) -->
+              <canvas
+                id="top-emu-canvas"
+                class="emu-mirror-canvas"
+                width="400"
+                height="240"
+                hidden
+                aria-label="Saída de vídeo da Tela Superior do Nintendo 3DS"
+              ></canvas>
+
+              <button
+                type="button"
+                class="emu-back-home-btn"
+                id="back-home-btn"
+                hidden
+              >
+                ⌂ HOME
+              </button>
+            </div>
+          </div>
+
+          <!-- Grade de alto-falante direita + Slider 3D -->
+          <div class="lid-right-col" aria-hidden="true">
+            <div class="speaker-grille">
+              <span></span><span></span><span></span>
+              <span></span><span></span><span></span>
+            </div>
+            <div class="slider-3d">
+              <span class="slider-label">3D</span>
+              <span class="slider-track"><span class="slider-knob"></span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dobradiça central -->
+      <div class="n3ds-hinge" aria-hidden="true">
+        <div class="hinge-barrel"></div>
+        <div class="hinge-leds">
+          <span class="led led-power" title="Power"></span>
+          <span class="led led-wifi" title="Wireless"></span>
+        </div>
+      </div>
+
+      <!-- Base Inferior do Console -->
+      <div class="n3ds-bottom-deck">
+        <div class="bottom-controls-row">
+          <!-- Controles Esquerdos: Circle Pad + D-Pad -->
+          <div class="side-controls side-left">
+            <div class="circle-pad-well" aria-hidden="true">
+              <div class="circle-pad-thumb"></div>
+            </div>
+            <div class="dpad" role="group" aria-label="Direcional D-Pad">
+              <button type="button" class="dpad-btn dpad-up" data-nav="up" data-key="ArrowUp" aria-label="Direcional Cima">▲</button>
+              <button type="button" class="dpad-btn dpad-left" data-nav="left" data-key="ArrowLeft" aria-label="Direcional Esquerda">◀</button>
+              <span class="dpad-center" aria-hidden="true"></span>
+              <button type="button" class="dpad-btn dpad-right" data-nav="right" data-key="ArrowRight" aria-label="Direcional Direita">▶</button>
+              <button type="button" class="dpad-btn dpad-down" data-nav="down" data-key="ArrowDown" aria-label="Direcional Baixo">▼</button>
+            </div>
+          </div>
+
+          <!-- Tela Inferior (Proporção 320x240) -->
+          <div class="bottom-screen-bezel">
+            <div class="screen-bottom" id="bottom-screen">
+              <!-- Barra superior da tela tátil -->
+              <div class="home-mini-bar">
+                <span class="home-mini-tag">HOME Menu</span>
+                <span class="home-mini-slot-info" id="slot-counter">1 / 4</span>
+              </div>
+
+              <!-- Grade de ícones HOME Menu -->
+              <div class="home-grid" role="listbox" aria-label="Aplicativos e slots do HOME Menu">
+                <button
+                  type="button"
+                  class="slot-card is-selected"
+                  data-slot="demo"
+                  role="option"
+                  aria-selected="true"
+                >
+                  <span class="slot-badge slot-badge-demo">DEMO</span>
+                  <span class="slot-icon-frame" id="slot-icon-demo"></span>
+                  <span class="slot-name" id="slot-name-demo">Flappy Bird</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="slot-card"
+                  data-slot="load"
+                  role="option"
+                  aria-selected="false"
+                >
+                  <span class="slot-badge slot-badge-rom" id="slot-badge-load">ROM</span>
+                  <span class="slot-icon-frame" id="slot-icon-load">
+                    <span class="glyph-rom" aria-hidden="true">＋</span>
+                  </span>
+                  <span class="slot-name" id="slot-name-load">Carregar ROM</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="slot-card"
+                  data-slot="saves"
+                  role="option"
+                  aria-selected="false"
+                >
+                  <span class="slot-badge slot-badge-save">IDBFS</span>
+                  <span class="slot-icon-frame" id="slot-icon-saves">
+                    <span class="glyph-save" aria-hidden="true">💾</span>
+                  </span>
+                  <span class="slot-name">Saves</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="slot-card slot-card-empty"
+                  data-slot="empty"
+                  role="option"
+                  aria-selected="false"
+                >
+                  <span class="slot-icon-frame slot-icon-empty" aria-hidden="true"></span>
+                  <span class="slot-name">Vazio</span>
+                </button>
+              </div>
+
+              <!-- Dock inferior -->
+              <footer class="home-dock">
+                <button type="button" class="dock-btn dock-btn-secondary" id="dock-load-btn">
+                  Carregar .3ds
+                </button>
+                <button type="button" class="dock-btn dock-btn-primary" id="dock-open-btn">
+                  ▶ Abrir
+                </button>
+              </footer>
+
+              <!-- Canvas espelhado tátil da metade inferior do emulador (320x240) -->
+              <canvas
+                id="bottom-emu-canvas"
+                class="emu-mirror-canvas emu-touch-canvas"
+                width="320"
+                height="240"
+                hidden
+                aria-label="Tela Tátil Inferior do Nintendo 3DS"
+              ></canvas>
+            </div>
+          </div>
+
+          <!-- Controles Direitos: A B X Y -->
+          <div class="side-controls side-right">
+            <div class="abxy-cluster" role="group" aria-label="Botões de ação A B X Y">
+              <button type="button" class="face-btn face-x" data-action="x" data-key="o" aria-label="Botão X">X</button>
+              <button type="button" class="face-btn face-y" data-action="y" data-key="i" aria-label="Botão Y">Y</button>
+              <button type="button" class="face-btn face-a" data-action="a" data-key="l" aria-label="Botão A">A</button>
+              <button type="button" class="face-btn face-b" data-action="b" data-key="k" aria-label="Botão B">B</button>
+            </div>
+            <div class="power-well" aria-hidden="true">
+              <span class="power-dot"></span>
+              <span class="power-text">POWER</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botões SELECT / HOME / START -->
+        <div class="bottom-sys-strip">
+          <button type="button" class="sys-pill-btn" data-key="Backspace" id="btn-select">SELECT</button>
+          <button type="button" class="sys-home-btn" id="btn-home">HOME</button>
+          <button type="button" class="sys-pill-btn" data-key="Enter" id="btn-start">START</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Barra discreta de backup de saves e diagnóstico abaixo do console -->
+    <section class="utility-bar" aria-label="Gerenciamento de saves e status do sistema">
+      <div class="utility-actions">
+        <button type="button" class="utility-btn" id="export-save-btn">
+          Exportar Save
+        </button>
+        <button type="button" class="utility-btn" id="import-save-btn">
+          Importar Save
+        </button>
+        <button type="button" class="utility-btn" id="open-saves-modal-btn">
+          Gerenciar /user
+        </button>
+      </div>
+
+      <p class="utility-status" id="system-status" aria-live="polite">
+        Verificando isolamento de origem e ROM demo...
+      </p>
+    </section>
+
+    <!-- Inputs de arquivo ocultos -->
+    <input
+      type="file"
+      id="rom-file-input"
+      accept=".3ds,.cci,.3dsx,.cxi"
+      class="visually-hidden"
+      tabindex="-1"
+    >
+    <input
+      type="file"
+      id="save-file-input"
+      accept=".zip,.sav,.bin,.dat"
+      class="visually-hidden"
+      tabindex="-1"
+    >
+
+    <!-- Canvas WebGL2 oculto (400x480) onde o núcleo SDL2/Emscripten renderiza -->
+    <canvas
+      id="canvas"
+      class="hidden-emu-webgl"
+      width="400"
+      height="480"
+      tabindex="-1"
+      aria-hidden="true"
+    ></canvas>
+
+    <!-- Modal nativo: Gerenciador de Saves (/user & IDBFS) -->
+    <dialog id="save-dialog" class="n3ds-dialog" closedby="any" aria-labelledby="save-dialog-title">
+      <div class="dialog-header">
+        <h2 id="save-dialog-title">Gerenciador de Saves (/user • IDBFS)</h2>
+        <button type="button" class="dialog-close-btn" id="close-save-dialog-btn" aria-label="Fechar gerenciador de saves">✕</button>
+      </div>
+      <div class="dialog-body">
+        <p class="dialog-desc">
+          Arquivos persistidos em <code>/user</code> no IndexedDB (<code>IDBFS</code>) são restaurados automaticamente ao iniciar uma ROM.
+        </p>
+        <div class="save-list-box" id="save-list-box">
+          <p class="save-empty-msg">Carregando saves...</p>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="utility-btn" id="modal-import-save-btn">Importar (.zip / .sav)</button>
+        <button type="button" class="utility-btn" id="modal-export-save-btn">Exportar Tudo (.zip)</button>
+        <button type="button" class="utility-btn utility-btn-danger" id="modal-clear-save-btn">Limpar /user</button>
+        <form method="dialog">
+          <button type="submit" class="dock-btn dock-btn-primary" autofocus>Fechar</button>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- Modal nativo: Aviso de núcleo WebAssembly ausente / status do build -->
+    <dialog id="core-notice-dialog" class="n3ds-dialog" closedby="any" aria-labelledby="core-notice-title">
+      <div class="dialog-header">
+        <h2 id="core-notice-title">Núcleo WebAssembly Panda3DS</h2>
+        <button type="button" class="dialog-close-btn" id="close-core-dialog-btn" aria-label="Fechar aviso">✕</button>
+      </div>
+      <div class="dialog-body">
+        <p class="dialog-desc" id="core-notice-message"></p>
+        <div class="core-checklist" id="core-checklist"></div>
+      </div>
+      <div class="dialog-footer">
+        <form method="dialog">
+          <button type="submit" class="dock-btn dock-btn-primary" autofocus>Entendi</button>
+        </form>
+      </div>
+    </dialog>
+  </main>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

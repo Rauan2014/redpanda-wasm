@@ -1,0 +1,21 @@
+{
+  "name": "panda3ds-web-home",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Nintendo 3DS WebAssembly emulator front-end inspired by the 3DS HOME Menu (Three.js + WebGL2 + IDBFS)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "serve": "node scripts/serve.mjs",
+    "build:wasm": "bash scripts/build-wasm.sh"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "three": "^0.174.0"
+  },
+  "devDependencies": {
+    "vite": "^6.2.0"
+  }
+}
