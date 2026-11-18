@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 
 /**
- * Low-resolution (200x120) Three.js Nintendo 3DS Cartridge Banner.
- * Uses antialias: false and NearestFilter CanvasTexture for authentic 3DS pixel stair-stepping.
+ * High-resolution anti-aliased Three.js Nintendo 3DS Cartridge Banner.
+ * Renders onto a high-DPI WebGL canvas with a 512x512 anisotropic CanvasTexture
+ * so cartridge title text, serial ID, and vertical branding stay sharp and readable.
  */
 export class CartridgeBanner3D {
   #canvas;
@@ -13,6 +14,7 @@ export class CartridgeBanner3D {
   #labelTexture;
   #labelCanvas;
   #labelCtx;
+  #resizeObserver = null;
   #rafId = null;
   #impulseTimerId = null;
   #lastFrameTime = 0;
@@ -31,26 +33,32 @@ export class CartridgeBanner3D {
 
   static BASE_SPIN_RAD_PER_FRAME = 0.011;
   static PERIODIC_IMPULSE_MS = 40_000;
+  static LABEL_SIZE = 512;
+  static LABEL_LOGICAL = 128;
 
   constructor(canvas, { onTap } = {}) {
     this.#canvas = canvas;
     this.#onTap = onTap;
     this.#reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // Low-resolution 200x120 buffer with antialias: false for authentic 3DS hardware jaggies
     this.#renderer = new THREE.WebGLRenderer({
       canvas: this.#canvas,
-      antialias: false,
+      antialias: true,
       alpha: true,
-      powerPreference: 'default',
+      powerPreference: 'high-performance',
     });
-    this.#renderer.setPixelRatio(1);
-    this.#renderer.setSize(200, 120, false);
+    this.#renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio || 1, 2), 3));
 
     this.#scene = new THREE.Scene();
-    this.#camera = new THREE.PerspectiveCamera(34, 200 / 120, 0.1, 30);
+    this.#camera = new THREE.PerspectiveCamera(34, 400 / 240, 0.1, 30);
     this.#camera.position.set(0, 0.16, 4.35);
     this.#camera.lookAt(0, 0, 0);
+
+    this.#syncCanvasResolution();
+    if (typeof ResizeObserver !== 'undefined' && this.#canvas.parentElement) {
+      this.#resizeObserver = new ResizeObserver(() => this.#syncCanvasResolution());
+      this.#resizeObserver.observe(this.#canvas.parentElement);
+    }
 
     this.#setupLighting();
     this.#initLabelTexture();
@@ -61,6 +69,16 @@ export class CartridgeBanner3D {
 
     this.#bindPointerEvents();
     this.#startPeriodicImpulse();
+  }
+
+  #syncCanvasResolution() {
+    const rect = this.#canvas.getBoundingClientRect();
+    const cssW = Math.max(400, Math.round(rect.width || 400));
+    const cssH = Math.max(240, Math.round(rect.height || 240));
+    this.#renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio || 1, 2), 3));
+    this.#renderer.setSize(cssW, cssH, false);
+    this.#camera.aspect = cssW / cssH;
+    this.#camera.updateProjectionMatrix();
   }
 
   #setupLighting() {
@@ -82,15 +100,17 @@ export class CartridgeBanner3D {
 
   #initLabelTexture() {
     this.#labelCanvas = document.createElement('canvas');
-    this.#labelCanvas.width = 128;
-    this.#labelCanvas.height = 128;
+    this.#labelCanvas.width = CartridgeBanner3D.LABEL_SIZE;
+    this.#labelCanvas.height = CartridgeBanner3D.LABEL_SIZE;
     this.#labelCtx = this.#labelCanvas.getContext('2d');
-    this.#labelCtx.imageSmoothingEnabled = false;
+    this.#labelCtx.imageSmoothingEnabled = true;
+    this.#labelCtx.imageSmoothingQuality = 'high';
 
     this.#labelTexture = new THREE.CanvasTexture(this.#labelCanvas);
-    this.#labelTexture.magFilter = THREE.NearestFilter;
-    this.#labelTexture.minFilter = THREE.NearestFilter;
-    this.#labelTexture.generateMipmaps = false;
+    this.#labelTexture.magFilter = THREE.LinearFilter;
+    this.#labelTexture.minFilter = THREE.LinearMipmapLinearFilter;
+    this.#labelTexture.generateMipmaps = true;
+    this.#labelTexture.anisotropy = Math.min(8, this.#renderer.capabilities.getMaxAnisotropy());
     this.#labelTexture.colorSpace = THREE.SRGBColorSpace;
   }
 
@@ -206,13 +226,18 @@ export class CartridgeBanner3D {
   }
 
   /**
-   * Redraws the pixelated 128x128 cartridge label texture for the selected slot.
+   * Redraws the crisp 512x512 cartridge label texture for the selected slot.
    */
   updateSlotLabel(slot) {
     const ctx = this.#labelCtx;
-    const W = 128;
-    const H = 128;
-    ctx.imageSmoothingEnabled = false;
+    const W = CartridgeBanner3D.LABEL_LOGICAL;
+    const H = CartridgeBanner3D.LABEL_LOGICAL;
+    const scale = CartridgeBanner3D.LABEL_SIZE / W;
+
+    ctx.save();
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     // Background theme gradient per slot
     const palette = slot.palette || {
@@ -228,30 +253,32 @@ export class CartridgeBanner3D {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
 
-    // Subtle pixel grid pattern
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    // Subtle horizontal texture lines
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
     for (let y = 0; y < H; y += 8) {
-      ctx.fillRect(0, y, W, 1);
+      ctx.fillRect(0, y, W, 0.75);
     }
 
     // Main artwork box (right of the white lateral strip)
     const stripW = 22;
     const artX = stripW + 6;
-    const artY = 10;
+    const artY = 9;
     const artW = W - artX - 8;
-    const artH = 68;
+    const artH = 66;
 
     ctx.fillStyle = 'rgba(10, 18, 34, 0.45)';
     ctx.fillRect(artX - 2, artY - 2, artW + 4, artH + 4);
 
     if (slot.iconCanvas) {
-      // Draw real extracted 48x48 SMDH ROM icon crisp-pixelated
+      // Preserve crisp pixel icon while keeping typography high-DPI smooth
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(artX, artY, artW, artH);
       const drawSize = Math.min(artW, artH) - 4;
       const dx = artX + Math.floor((artW - drawSize) / 2);
       const dy = artY + Math.floor((artH - drawSize) / 2);
+      ctx.imageSmoothingEnabled = false;
       ctx.drawImage(slot.iconCanvas, dx, dy, drawSize, drawSize);
+      ctx.imageSmoothingEnabled = true;
     } else if (slot.id === 'demo') {
       this.#draw2048Artwork(ctx, artX, artY, artW, artH);
     } else if (slot.id === 'load') {
@@ -262,20 +289,20 @@ export class CartridgeBanner3D {
       this.#drawEmptyArtwork(ctx, artX, artY, artW, artH);
     }
 
-    // Slot title banner
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-    ctx.fillRect(stripW + 4, 83, W - stripW - 8, 22);
+    // Slot title banner (high-contrast legible typography)
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.72)';
+    ctx.fillRect(stripW + 4, 80, W - stripW - 8, 24);
     ctx.fillStyle = palette.text || '#ffffff';
-    ctx.font = 'bold 11px monospace';
+    ctx.font = '800 11.5px "Segoe UI", system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const shortName = (slot.cartTitle || slot.title || 'NINTENDO 3DS').slice(0, 13);
-    ctx.fillText(shortName, stripW + (W - stripW) / 2, 94);
+    const shortName = (slot.cartTitle || slot.title || 'NINTENDO 3DS').slice(0, 14);
+    ctx.fillText(shortName, stripW + (W - stripW) / 2, 92.5, W - stripW - 14);
 
     // Serial code CTR-P-...
-    ctx.fillStyle = '#e2e8f0';
-    ctx.font = 'bold 9px monospace';
-    ctx.fillText((slot.serial || 'CTR-P-3DSW').slice(0, 14), stripW + (W - stripW) / 2, 115);
+    ctx.fillStyle = '#f1f5f9';
+    ctx.font = '700 9.5px ui-monospace, Menlo, monospace';
+    ctx.fillText((slot.serial || 'CTR-P-3DSW').slice(0, 14), stripW + (W - stripW) / 2, 115, W - stripW - 12);
 
     // Signature white lateral "Nintendo 3DS" strip on the left side
     ctx.fillStyle = '#f8fafc';
@@ -287,22 +314,23 @@ export class CartridgeBanner3D {
     ctx.fillStyle = '#dc2626';
     ctx.fillRect(4, 6, 14, 14);
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 8px sans-serif';
+    ctx.font = '800 7px "Segoe UI", system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('3DS', 11, 13);
+    ctx.fillText('3DS', 11, 13.5);
 
     // Vertical "Nintendo 3DS" branding along the white strip
     ctx.save();
     ctx.translate(11, 74);
     ctx.rotate(-Math.PI / 2);
-    ctx.fillStyle = '#1e293b';
-    ctx.font = 'bold 10px sans-serif';
+    ctx.fillStyle = '#0f172a';
+    ctx.font = '800 10.5px "Segoe UI", system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('Nintendo 3DS', 0, 0);
     ctx.restore();
 
+    ctx.restore();
     this.#labelTexture.needsUpdate = true;
   }
 
@@ -417,6 +445,8 @@ export class CartridgeBanner3D {
       clearInterval(this.#impulseTimerId);
       this.#impulseTimerId = null;
     }
+    this.#resizeObserver?.disconnect();
+    this.#resizeObserver = null;
   }
 
   #startPeriodicImpulse() {
@@ -429,6 +459,7 @@ export class CartridgeBanner3D {
   }
 
   #updateAndRender(dtMs) {
+    if (document.hidden) return;
     const frameScale = dtMs / 16.6667;
 
     if (!this.#paused && !this.#dragging) {
