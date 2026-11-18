@@ -92,7 +92,7 @@ pushd "$BUILD_DIR" >/dev/null
 echo "[4/6] Configuring Panda3DS with emcmake cmake..."
 CXX_FLAGS="-O3 -pthread -fwasm-exceptions -sUSE_SDL=2"
 C_FLAGS="-O3 -pthread -sUSE_SDL=2"
-EXE_LINKER_FLAGS="-pthread -fwasm-exceptions -sUSE_SDL=2 -sUSE_WEBGL2=1 -sFULL_ES3=1 -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=512MB -sMAXIMUM_MEMORY=2GB -sSTACK_SIZE=2MB -sPTHREAD_POOL_SIZE=4 -sINVOKE_RUN=0 -sEXIT_RUNTIME=0 -sEXPORTED_FUNCTIONS=['_main','_ma_device__on_notification_unlocked','_emscripten_pause_main_loop','_emscripten_resume_main_loop'] -sEXPORTED_RUNTIME_METHODS=['FS','IDBFS','callMain','HEAPF32'] -lidbfs.js"
+EXE_LINKER_FLAGS="-pthread -fwasm-exceptions -sUSE_SDL=2 -sUSE_WEBGL2=1 -sFULL_ES3=1 -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=512MB -sMAXIMUM_MEMORY=2GB -sSTACK_SIZE=2MB -sPTHREAD_POOL_SIZE=4 -sINVOKE_RUN=0 -sEXIT_RUNTIME=0 -sEXPORTED_FUNCTIONS=['_main','_ma_device__on_notification_unlocked','_emscripten_pause_main_loop','_emscripten_resume_main_loop','_panda_set_web_buttons','_panda_set_web_circlepad','_panda_set_web_cstick','_panda_reset_web_input'] -sEXPORTED_RUNTIME_METHODS=['FS','IDBFS','callMain','HEAPF32'] -lidbfs.js"
 
 emcmake cmake .. \
   -DCMAKE_BUILD_TYPE=Release \

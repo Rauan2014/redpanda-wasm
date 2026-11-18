@@ -7,27 +7,31 @@ const COOP_COEP_HEADERS = {
 };
 
 function wasmHeadersPlugin() {
+  const applyHeaders = (req, res) => {
+    const cleanUrl = (req.url || '/').split('?')[0];
+    if (cleanUrl === '/sobre.html' || cleanUrl === '/sobre') {
+      res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+      return;
+    }
+    for (const [key, value] of Object.entries(COOP_COEP_HEADERS)) {
+      res.setHeader(key, value);
+    }
+    if (cleanUrl.endsWith('.wasm')) {
+      res.setHeader('Content-Type', 'application/wasm');
+    }
+  };
+
   return {
     name: 'coop-coep-and-wasm-mime',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        for (const [key, value] of Object.entries(COOP_COEP_HEADERS)) {
-          res.setHeader(key, value);
-        }
-        if (req.url && req.url.split('?')[0].endsWith('.wasm')) {
-          res.setHeader('Content-Type', 'application/wasm');
-        }
+        applyHeaders(req, res);
         next();
       });
     },
     configurePreviewServer(server) {
       server.middlewares.use((req, res, next) => {
-        for (const [key, value] of Object.entries(COOP_COEP_HEADERS)) {
-          res.setHeader(key, value);
-        }
-        if (req.url && req.url.split('?')[0].endsWith('.wasm')) {
-          res.setHeader('Content-Type', 'application/wasm');
-        }
+        applyHeaders(req, res);
         next();
       });
     },
@@ -39,17 +43,19 @@ export default defineConfig({
   server: {
     host: '127.0.0.1',
     port: 5173,
-    headers: COOP_COEP_HEADERS,
   },
   preview: {
     host: '127.0.0.1',
     port: 4173,
-    headers: COOP_COEP_HEADERS,
   },
   build: {
     target: 'es2022',
     outDir: 'dist',
     rollupOptions: {
+      input: {
+        main: 'index.html',
+        sobre: 'sobre.html',
+      },
       output: {
         manualChunks: {
           three: ['three'],

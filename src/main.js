@@ -3,7 +3,9 @@ import { parseRomMetadata } from './romParser.js';
 import { HomeAudioSynth } from './audio.js';
 import { CartridgeBanner3D } from './cartridge3d.js';
 import { SaveManager } from './saves.js';
-import { Panda3DSEmulator } from './emulator.js';
+import { Panda3DSEmulator, HID_KEYS } from './emulator.js';
+import { createInputController } from './input-controller.js';
+import { initAdSense } from './adsense.js';
 
 const DEMO_ROM_URL = '/roms/blockblast.3dsx';
 const DEMO_ROM_NAME = 'blockblast.3dsx';
@@ -95,6 +97,29 @@ const coreNoticeDialog = document.getElementById('core-notice-dialog');
 const coreNoticeMessageEl = document.getElementById('core-notice-message');
 const coreChecklistEl = document.getElementById('core-checklist');
 const closeCoreDialogBtn = document.getElementById('close-core-dialog-btn');
+
+const pageShellEl = document.getElementById('page-shell');
+const consoleShellEl = document.getElementById('console-shell');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+const utilityFullscreenBtn = document.getElementById('utility-fullscreen-btn');
+const exitFullscreenBtn = document.getElementById('exit-fullscreen-btn');
+
+const mouseModeBtn = document.getElementById('mouse-mode-btn');
+const openControlsModalBtn = document.getElementById('open-controls-modal-btn');
+const controlsDialog = document.getElementById('controls-dialog');
+const closeControlsDialogBtn = document.getElementById('close-controls-dialog-btn');
+const controlsGamepadInfoEl = document.getElementById('controls-gamepad-info');
+const gamepadStatusPillEl = document.getElementById('gamepad-status-pill');
+const selectMouseModeEl = document.getElementById('select-mouse-mode');
+const selectGamepadLayoutEl = document.getElementById('select-gamepad-layout');
+const chkMouseMirrorDpadEl = document.getElementById('chk-mouse-mirror-dpad');
+
+const circlePadWellEl = document.getElementById('circle-pad-well');
+const circlePadThumbEl = document.getElementById('circle-pad-thumb');
+
+const adBannerSlotEl = document.getElementById('ad-banner-slot');
+const adsenseUnitEl = document.getElementById('adsense-unit');
+const adSlotNoteEl = document.getElementById('ad-slot-note');
 
 const audio = new HomeAudioSynth();
 const cartridge = new CartridgeBanner3D(cartridgeCanvas, {
@@ -540,6 +565,7 @@ modalClearSaveBtn.addEventListener('click', async () => {
 
 closeSaveDialogBtn.addEventListener('click', () => saveDialog.close());
 closeCoreDialogBtn.addEventListener('click', () => coreNoticeDialog.close());
+closeControlsDialogBtn.addEventListener('click', () => controlsDialog.close());
 
 saveDialog.addEventListener('close', () => {
   saveDialog.returnValue = '';
@@ -547,6 +573,10 @@ saveDialog.addEventListener('close', () => {
 });
 coreNoticeDialog.addEventListener('close', () => {
   coreNoticeDialog.returnValue = '';
+});
+controlsDialog.addEventListener('close', () => {
+  controlsDialog.returnValue = '';
+  audio.playModal(false);
 });
 
 if (!('closedBy' in HTMLDialogElement.prototype)) {
@@ -587,38 +617,193 @@ document.getElementById('btn-home').addEventListener('click', () => {
   }
 });
 
-// Physical console D-Pad + A/B/X/Y + SELECT/START wiring
+// ============================================================================
+// Pure Dual-Screen Fullscreen Mode (somente tela maior + tela menor)
+// ============================================================================
+
+let cssFullscreenFallback = false;
+
+function isFullscreenActive() {
+  return Boolean(document.fullscreenElement) || cssFullscreenFallback;
+}
+
+function syncFullscreenUi() {
+  const active = isFullscreenActive();
+  pageShellEl.classList.toggle('is-fullscreen', active);
+  consoleShellEl.classList.toggle('is-fullscreen', active);
+  exitFullscreenBtn.hidden = !active;
+  fullscreenBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  fullscreenBtn.title = active ? 'Sair da tela cheia (Esc ou F)' : 'Tela cheia apenas telas (F)';
+  utilityFullscreenBtn.textContent = active ? '✕ Sair Tela Cheia' : '⛶ Tela Cheia (Telas)';
+  utilityFullscreenBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+}
+
+async function enterFullscreenMode() {
+  if (isFullscreenActive()) return;
+  try {
+    if (document.documentElement.requestFullscreen) {
+      await document.documentElement.requestFullscreen();
+      cssFullscreenFallback = false;
+    } else {
+      cssFullscreenFallback = true;
+    }
+  } catch {
+    cssFullscreenFallback = true;
+  }
+  syncFullscreenUi();
+}
+
+async function exitFullscreenMode() {
+  cssFullscreenFallback = false;
+  if (document.fullscreenElement && document.exitFullscreen) {
+    try {
+      await document.exitFullscreen();
+    } catch {
+      // Fall back to UI sync
+    }
+  }
+  syncFullscreenUi();
+}
+
+function toggleFullscreenMode() {
+  if (isFullscreenActive()) {
+    void exitFullscreenMode();
+  } else {
+    void enterFullscreenMode();
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) {
+    cssFullscreenFallback = false;
+  }
+  syncFullscreenUi();
+});
+
+fullscreenBtn.addEventListener('click', toggleFullscreenMode);
+utilityFullscreenBtn.addEventListener('click', toggleFullscreenMode);
+exitFullscreenBtn.addEventListener('click', () => void exitFullscreenMode());
+
+// ============================================================================
+// Unified Keyboard + Gamepad + Mouse Directional Input
+// ============================================================================
+
+const MOUSE_MODE_LABELS = {
+  motion: 'Movimento',
+  position: 'Livre',
+  off: 'Desligado',
+};
+
+function isAnyModalOpen() {
+  return saveDialog.open || coreNoticeDialog.open || controlsDialog.open;
+}
+
+function navigateHomeGrid(dx, dy) {
+  if (emulator.isRunning || isAnyModalOpen()) return;
+  const idx = SLOT_ORDER.indexOf(state.selectedSlotId);
+  const step = dx !== 0 ? dx : dy;
+  if (step === 0) return;
+  const nextIdx = (idx + step + SLOT_ORDER.length) % SLOT_ORDER.length;
+  selectSlot(SLOT_ORDER[nextIdx], { impulse: true, sound: true });
+}
+
+const inputController = createInputController({
+  emulator,
+  consoleEl: consoleShellEl,
+  circlePadWell: circlePadWellEl,
+  circlePadThumb: circlePadThumbEl,
+  bottomEmuCanvas,
+  controlElements: {
+    up: { mask: HID_KEYS.Up, element: document.querySelector('.dpad-up') },
+    down: { mask: HID_KEYS.Down, element: document.querySelector('.dpad-down') },
+    left: { mask: HID_KEYS.Left, element: document.querySelector('.dpad-left') },
+    right: { mask: HID_KEYS.Right, element: document.querySelector('.dpad-right') },
+    a: { mask: HID_KEYS.A, element: document.querySelector('.face-a') },
+    b: { mask: HID_KEYS.B, element: document.querySelector('.face-b') },
+    x: { mask: HID_KEYS.X, element: document.querySelector('.face-x') },
+    y: { mask: HID_KEYS.Y, element: document.querySelector('.face-y') },
+    l: { mask: HID_KEYS.L, element: document.getElementById('btn-l') },
+    r: { mask: HID_KEYS.R, element: document.getElementById('btn-r') },
+    zl: { mask: HID_KEYS.ZL, element: document.getElementById('btn-zl') },
+    zr: { mask: HID_KEYS.ZR, element: document.getElementById('btn-zr') },
+    select: { mask: HID_KEYS.Select, element: document.getElementById('btn-select') },
+    start: { mask: HID_KEYS.Start, element: document.getElementById('btn-start') },
+  },
+  isModalOpen: isAnyModalOpen,
+  isFullscreen: isFullscreenActive,
+  onHomeNavigate: navigateHomeGrid,
+  onHomeConfirm: () => {
+    if (!emulator.isRunning && !isAnyModalOpen()) {
+      void launchSelectedSlot();
+    }
+  },
+  onHomeCancel: () => {
+    if (saveDialog.open) saveDialog.close();
+    if (coreNoticeDialog.open) coreNoticeDialog.close();
+    if (controlsDialog.open) controlsDialog.close();
+  },
+  onHomeToggle: () => {
+    if (emulator.isRunning) {
+      exitEmulatorView();
+    } else {
+      selectSlot('demo', { impulse: true, sound: true });
+    }
+  },
+  onFullscreenToggle: toggleFullscreenMode,
+  onExitFullscreen: () => void exitFullscreenMode(),
+  onMouseModeChange: (mode) => {
+    const label = MOUSE_MODE_LABELS[mode] || mode;
+    mouseModeBtn.textContent = `🖱 Direcional Mouse: ${label}`;
+    selectMouseModeEl.value = mode;
+  },
+  onGamepadChange: (gp) => {
+    if (gp) {
+      const shortName = gp.id.replace(/\s*\([^)]*\)/g, '').slice(0, 34);
+      gamepadStatusPillEl.textContent = `🎮 Controle: ${shortName}`;
+      gamepadStatusPillEl.classList.add('is-connected');
+      controlsGamepadInfoEl.textContent = `Conectado: ${gp.id} (${gp.mapping})`;
+      controlsGamepadInfoEl.classList.add('is-connected');
+    } else {
+      gamepadStatusPillEl.textContent = '🎮 Controle: Conecte um gamepad ou use o teclado';
+      gamepadStatusPillEl.classList.remove('is-connected');
+      controlsGamepadInfoEl.textContent = 'Nenhum controle conectado. Conecte um controle USB/Bluetooth (Xbox, PlayStation, Switch, 8BitDo) e pressione qualquer botão.';
+      controlsGamepadInfoEl.classList.remove('is-connected');
+    }
+  },
+});
+
+mouseModeBtn.addEventListener('click', () => {
+  audio.playSelect();
+  inputController.cycleMouseMode();
+});
+
+openControlsModalBtn.addEventListener('click', () => {
+  audio.playModal(true);
+  controlsDialog.showModal();
+});
+
+selectMouseModeEl.addEventListener('change', () => {
+  inputController.setMouseMode(selectMouseModeEl.value);
+});
+
+selectGamepadLayoutEl.addEventListener('change', () => {
+  inputController.setGamepadLayout(selectGamepadLayoutEl.value);
+});
+
+chkMouseMirrorDpadEl.addEventListener('change', () => {
+  inputController.setMouseMirrorDpad(chkMouseMirrorDpadEl.checked);
+});
+
+// Physical console D-Pad + A/B clicks in HOME Menu (gameplay holds handled by inputController)
 document.querySelectorAll('[data-nav]').forEach((btn) => {
-  btn.addEventListener('pointerdown', () => {
-    if (emulator.isRunning) {
-      emulator.sendVirtualKey(btn.dataset.key, true);
-    }
-  });
-  btn.addEventListener('pointerup', () => {
-    if (emulator.isRunning) {
-      emulator.sendVirtualKey(btn.dataset.key, false);
-    }
-  });
   btn.addEventListener('click', () => {
     if (emulator.isRunning) return;
-    const idx = SLOT_ORDER.indexOf(state.selectedSlotId);
-    const delta = btn.dataset.nav === 'left' || btn.dataset.nav === 'up' ? -1 : 1;
-    const nextIdx = (idx + delta + SLOT_ORDER.length) % SLOT_ORDER.length;
-    selectSlot(SLOT_ORDER[nextIdx], { impulse: true, sound: true });
+    const step = btn.dataset.nav === 'left' || btn.dataset.nav === 'up' ? -1 : 1;
+    navigateHomeGrid(step, 0);
   });
 });
 
-document.querySelectorAll('.face-btn, .sys-pill-btn').forEach((btn) => {
-  btn.addEventListener('pointerdown', () => {
-    if (emulator.isRunning && btn.dataset.key) {
-      emulator.sendVirtualKey(btn.dataset.key, true);
-    }
-  });
-  btn.addEventListener('pointerup', () => {
-    if (emulator.isRunning && btn.dataset.key) {
-      emulator.sendVirtualKey(btn.dataset.key, false);
-    }
-  });
+document.querySelectorAll('.face-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     if (emulator.isRunning) return;
     if (btn.dataset.action === 'a') {
@@ -626,19 +811,9 @@ document.querySelectorAll('.face-btn, .sys-pill-btn').forEach((btn) => {
     } else if (btn.dataset.action === 'b') {
       if (saveDialog.open) saveDialog.close();
       if (coreNoticeDialog.open) coreNoticeDialog.close();
+      if (controlsDialog.open) controlsDialog.close();
     }
   });
-});
-
-window.addEventListener('keydown', (e) => {
-  if (emulator.isRunning || saveDialog.open || coreNoticeDialog.open) return;
-  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-    e.preventDefault();
-    const idx = SLOT_ORDER.indexOf(state.selectedSlotId);
-    const delta = e.key === 'ArrowLeft' ? -1 : 1;
-    const nextIdx = (idx + delta + SLOT_ORDER.length) % SLOT_ORDER.length;
-    selectSlot(SLOT_ORDER[nextIdx], { impulse: true, sound: true });
-  }
 });
 
 // ============================================================================
@@ -650,4 +825,10 @@ startLiveClock();
 void initBatteryIndicator();
 selectSlot('demo', { impulse: false, sound: false });
 cartridge.start();
+inputController.start();
+initAdSense({
+  insElement: adsenseUnitEl,
+  statusElement: adSlotNoteEl,
+  containerElement: adBannerSlotEl,
+});
 void preloadDemoRom();

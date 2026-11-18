@@ -726,6 +726,104 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
     )
     replace_once(
         frontend_cpp,
+        "#include \"version.hpp\"",
+        "#include \"version.hpp\"\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "#include <algorithm>\n"
+        "#include <atomic>\n\n"
+        "namespace {\n"
+        "std::atomic<u32> g_webButtonMask{0};\n"
+        "std::atomic<s32> g_webCirclePadX{0};\n"
+        "std::atomic<s32> g_webCirclePadY{0};\n"
+        "std::atomic<s32> g_webCirclePadActive{0};\n"
+        "std::atomic<s32> g_webCStickX{0};\n"
+        "std::atomic<s32> g_webCStickY{0};\n"
+        "std::atomic<s32> g_webCStickActive{0};\n"
+        "u32 g_prevWebButtonMask = 0;\n"
+        "s32 g_prevWebCirclePadActive = 0;\n"
+        "}  // namespace\n\n"
+        "extern \"C\" {\n"
+        "EMSCRIPTEN_KEEPALIVE void panda_set_web_buttons(u32 mask) {\n"
+        "\tg_webButtonMask.store(mask, std::memory_order_relaxed);\n"
+        "}\n\n"
+        "EMSCRIPTEN_KEEPALIVE void panda_set_web_circlepad(s32 x, s32 y, s32 active) {\n"
+        "\tg_webCirclePadX.store(std::clamp<s32>(x, -0x9C, 0x9C), std::memory_order_relaxed);\n"
+        "\tg_webCirclePadY.store(std::clamp<s32>(y, -0x9C, 0x9C), std::memory_order_relaxed);\n"
+        "\tg_webCirclePadActive.store(active ? 1 : 0, std::memory_order_relaxed);\n"
+        "}\n\n"
+        "EMSCRIPTEN_KEEPALIVE void panda_set_web_cstick(s32 x, s32 y, s32 active) {\n"
+        "\tg_webCStickX.store(std::clamp<s32>(x, -2048, 2047), std::memory_order_relaxed);\n"
+        "\tg_webCStickY.store(std::clamp<s32>(y, -2048, 2047), std::memory_order_relaxed);\n"
+        "\tg_webCStickActive.store(active ? 1 : 0, std::memory_order_relaxed);\n"
+        "}\n\n"
+        "EMSCRIPTEN_KEEPALIVE void panda_reset_web_input() {\n"
+        "\tg_webButtonMask.store(0, std::memory_order_relaxed);\n"
+        "\tg_webCirclePadX.store(0, std::memory_order_relaxed);\n"
+        "\tg_webCirclePadY.store(0, std::memory_order_relaxed);\n"
+        "\tg_webCirclePadActive.store(0, std::memory_order_relaxed);\n"
+        "\tg_webCStickX.store(0, std::memory_order_relaxed);\n"
+        "\tg_webCStickY.store(0, std::memory_order_relaxed);\n"
+        "\tg_webCStickActive.store(0, std::memory_order_relaxed);\n"
+        "\tg_prevWebButtonMask = 0;\n"
+        "\tg_prevWebCirclePadActive = 0;\n"
+        "}\n"
+        "}\n"
+        "#endif",
+    )
+    replace_once(
+        frontend_cpp,
+        "\t// Make SDL use consistent positional button mapping\n"
+        "\tSDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, \"0\");\n"
+        "\tif (SDL_Init(SDL_INIT_GAMECONTROLLER) < 0) {\n"
+        "\t\tHelpers::warn(\"Failed to initialize SDL2 GameController: %s\", SDL_GetError());\n"
+        "\t}",
+        "#ifndef __EMSCRIPTEN__\n"
+        "\t// Make SDL use consistent positional button mapping\n"
+        "\tSDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, \"0\");\n"
+        "\tif (SDL_Init(SDL_INIT_GAMECONTROLLER) < 0) {\n"
+        "\t\tHelpers::warn(\"Failed to initialize SDL2 GameController: %s\", SDL_GetError());\n"
+        "\t}\n"
+        "#endif",
+    )
+    replace_once(
+        frontend_cpp,
+        "\t\t\thid.updateInputs(emu.getTicks());",
+        "#ifdef __EMSCRIPTEN__\n"
+        "\t\t\tconst u32 webButtons = g_webButtonMask.load(std::memory_order_relaxed);\n"
+        "\t\t\tconst u32 changedButtons = webButtons ^ g_prevWebButtonMask;\n"
+        "\t\t\tif (changedButtons != 0) {\n"
+        "\t\t\t\tconstexpr u32 kAllWebButtons =\n"
+        "\t\t\t\t\tHID::Keys::A | HID::Keys::B | HID::Keys::Select | HID::Keys::Start |\n"
+        "\t\t\t\t\tHID::Keys::Right | HID::Keys::Left | HID::Keys::Up | HID::Keys::Down |\n"
+        "\t\t\t\t\tHID::Keys::R | HID::Keys::L | HID::Keys::X | HID::Keys::Y |\n"
+        "\t\t\t\t\tHID::Keys::ZL | HID::Keys::ZR;\n"
+        "\t\t\t\tconst u32 activeMask = changedButtons & kAllWebButtons;\n"
+        "\t\t\t\tfor (u32 bit = 1; bit != 0 && bit <= HID::Keys::ZR; bit <<= 1) {\n"
+        "\t\t\t\t\tif (activeMask & bit) {\n"
+        "\t\t\t\t\t\thid.setKey(bit, (webButtons & bit) != 0);\n"
+        "\t\t\t\t\t}\n"
+        "\t\t\t\t}\n"
+        "\t\t\t\tg_prevWebButtonMask = webButtons;\n"
+        "\t\t\t}\n"
+        "\t\t\tconst s32 webCircleActive = g_webCirclePadActive.load(std::memory_order_relaxed);\n"
+        "\t\t\tif (webCircleActive) {\n"
+        "\t\t\t\thid.setCirclepadX(static_cast<s16>(g_webCirclePadX.load(std::memory_order_relaxed)));\n"
+        "\t\t\t\thid.setCirclepadY(static_cast<s16>(g_webCirclePadY.load(std::memory_order_relaxed)));\n"
+        "\t\t\t\tg_prevWebCirclePadActive = 1;\n"
+        "\t\t\t} else if (g_prevWebCirclePadActive) {\n"
+        "\t\t\t\tif (!keyboardAnalogX) hid.setCirclepadX(0);\n"
+        "\t\t\t\tif (!keyboardAnalogY) hid.setCirclepadY(0);\n"
+        "\t\t\t\tg_prevWebCirclePadActive = 0;\n"
+        "\t\t\t}\n"
+        "\t\t\tif (g_webCStickActive.load(std::memory_order_relaxed)) {\n"
+        "\t\t\t\thid.setCStickX(static_cast<s16>(g_webCStickX.load(std::memory_order_relaxed)));\n"
+        "\t\t\t\thid.setCStickY(static_cast<s16>(g_webCStickY.load(std::memory_order_relaxed)));\n"
+        "\t\t\t}\n"
+        "#endif\n\n"
+        "\t\t\thid.updateInputs(emu.getTicks());",
+    )
+    replace_once(
+        frontend_cpp,
         "\t\tSDL_GL_SwapWindow(window);\n\t}\n}",
         "\tSDL_GL_SwapWindow(window);\n}",
     )

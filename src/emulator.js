@@ -8,6 +8,26 @@
  */
 
 const SYNC_INTERVAL_MS = 5000;
+const CIRCLE_PAD_MAX = 0x9c;
+const C_STICK_MAX = 2047;
+
+/** Panda3DS HID::Keys bitmasks aligned with include/services/hid.hpp */
+export const HID_KEYS = Object.freeze({
+  A: 1 << 0,
+  B: 1 << 1,
+  Select: 1 << 2,
+  Start: 1 << 3,
+  Right: 1 << 4,
+  Left: 1 << 5,
+  Up: 1 << 6,
+  Down: 1 << 7,
+  R: 1 << 8,
+  L: 1 << 9,
+  X: 1 << 10,
+  Y: 1 << 11,
+  ZL: 1 << 14,
+  ZR: 1 << 15,
+});
 
 const KEYCODE_MAP = {
   ArrowUp: { keyCode: 38, code: 'ArrowUp' },
@@ -22,6 +42,8 @@ const KEYCODE_MAP = {
   i: { keyCode: 73, code: 'KeyI' },
   q: { keyCode: 81, code: 'KeyQ' },
   p: { keyCode: 80, code: 'KeyP' },
+  '1': { keyCode: 49, code: 'Digit1' },
+  '0': { keyCode: 48, code: 'Digit0' },
   w: { keyCode: 87, code: 'KeyW' },
   s: { keyCode: 83, code: 'KeyS' },
   a: { keyCode: 65, code: 'KeyA' },
@@ -304,6 +326,7 @@ export class Panda3DSEmulator {
 
     this.#running = true;
     this.#paused = false;
+    this.resetWebInput();
     this.#startMirrorLoop();
     this.#onStatus?.(`Executando ${romPath.split('/').pop()}...`);
 
@@ -355,6 +378,7 @@ export class Panda3DSEmulator {
   stopDisplay() {
     this.#running = false;
     this.#paused = true;
+    this.resetWebInput();
     this.#module?._emscripten_pause_main_loop?.();
     this.#module?.pauseMainLoop?.();
     this.#stopMirrorLoop();
@@ -478,6 +502,42 @@ export class Panda3DSEmulator {
   }
 
   /**
+   * Sends the active HID button bitmask (keyboard/gamepad/on-screen/mouse) to WASM.
+   */
+  setWebButtons(mask) {
+    if (!this.#running) return;
+    this.#module?._panda_set_web_buttons?.(mask >>> 0);
+  }
+
+  /**
+   * Drives the analog Circle Pad using normalized browser screen axes:
+   * axisX in [-1, 1] (+ right), axisY in [-1, 1] (+ down -> negated for 3DS +Y up).
+   */
+  setWebCirclePad(axisX, axisY, active) {
+    if (!this.#running) return;
+    const x = Math.round(Math.max(-1, Math.min(1, axisX)) * CIRCLE_PAD_MAX);
+    const y = Math.round(Math.max(-1, Math.min(1, -axisY)) * CIRCLE_PAD_MAX);
+    this.#module?._panda_set_web_circlepad?.(x, y, active ? 1 : 0);
+  }
+
+  /**
+   * Drives the New 3DS C-Stick using normalized browser axes (+X right, +Y down).
+   */
+  setWebCStick(axisX, axisY, active) {
+    if (!this.#running) return;
+    const x = Math.round(Math.max(-1, Math.min(1, axisX)) * C_STICK_MAX);
+    const y = Math.round(Math.max(-1, Math.min(1, -axisY)) * C_STICK_MAX);
+    this.#module?._panda_set_web_cstick?.(x, y, active ? 1 : 0);
+  }
+
+  /**
+   * Clears any latched web HID override state on ROM switch or exit to HOME.
+   */
+  resetWebInput() {
+    this.#module?._panda_reset_web_input?.();
+  }
+
+  /**
    * Dispatches synthetic key events with keyCode/which/code for SDL2 Emscripten input.
    */
   sendVirtualKey(key, pressed) {
@@ -497,5 +557,13 @@ export class Panda3DSEmulator {
       Object.defineProperty(evt, 'which', { get: () => info.keyCode });
     }
     document.dispatchEvent(evt);
+    window.dispatchEvent(new KeyboardEvent(type, {
+      key,
+      code: info.code,
+      keyCode: info.keyCode,
+      which: info.keyCode,
+      bubbles: true,
+      cancelable: true,
+    }));
   }
 }

@@ -31,13 +31,22 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
+  const isUnisolatedEditorialPage = urlPath === '/sobre.html' || urlPath === '/sobre';
+
+  if (isUnisolatedEditorialPage) {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  } else {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  }
   res.setHeader('X-Content-Type-Options', 'nosniff');
 
-  const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
-  let filePath = path.normalize(path.join(serveDir, urlPath === '/' ? 'index.html' : urlPath));
+  let resolvedUrl = urlPath;
+  if (resolvedUrl === '/') resolvedUrl = '/index.html';
+  else if (resolvedUrl === '/sobre') resolvedUrl = '/sobre.html';
+  let filePath = path.normalize(path.join(serveDir, resolvedUrl));
 
   if (!filePath.startsWith(serveDir)) {
     res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
