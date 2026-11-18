@@ -133,9 +133,20 @@ export class Panda3DSEmulator {
     if (this.#module && this.#paused && this.#activeRomPath === romPath) {
       this.#paused = false;
       this.#running = true;
+      this.#module._emscripten_resume_main_loop?.();
       this.#module.resumeMainLoop?.();
       this.#startMirrorLoop();
       this.#onStatus?.(`Retomando ${safeFileName}...`);
+      return { ok: true };
+    }
+
+    // Switch ROM inside the active WebAssembly instance without leaking SharedArrayBuffer memory
+    if (this.#module?.FS && this.#module?.callMain) {
+      this.#module._emscripten_pause_main_loop?.();
+      this.#module.pauseMainLoop?.();
+      this.#stopMirrorLoop();
+      await this.syncSavesToIndexedDb();
+      this.#bootRomInModule(this.#module, romPath, romBytes);
       return { ok: true };
     }
 
@@ -144,7 +155,7 @@ export class Panda3DSEmulator {
       return { ok: false, missingWasm: true, reason: probe.reason };
     }
 
-    // If a different ROM was previously loaded, cleanly reset instance + canvas
+    // Reset stale canvas/state only if a non-reusable instance remained
     if (this.#module) {
       this.#module.pauseMainLoop?.();
       this.#stopMirrorLoop();
@@ -171,7 +182,6 @@ export class Panda3DSEmulator {
         if (file.endsWith('.worker.js')) return '/wasm/Panda3DS.worker.js';
         return `/wasm/${file}`;
       },
-      mainScriptUrlOrBlob: '/wasm/Panda3DS.js',
       noInitialRun: true,
       print: (msg) => this.#onLog?.(`[Panda3DS] ${msg}`),
       printErr: (msg) => this.#onLog?.(`[Panda3DS:err] ${msg}`),
@@ -301,7 +311,7 @@ export class Panda3DSEmulator {
       mod.callMain([romPath]);
     } catch (err) {
       if (!String(err).includes('unwind')) {
-        this.#onLog?.(`[callMain] ${err}`);
+        this.#onLog?.(`[callMain] ${err?.stack || err}`);
       }
     }
   }
@@ -345,6 +355,7 @@ export class Panda3DSEmulator {
   stopDisplay() {
     this.#running = false;
     this.#paused = true;
+    this.#module?._emscripten_pause_main_loop?.();
     this.#module?.pauseMainLoop?.();
     this.#stopMirrorLoop();
     void this.syncSavesToIndexedDb();

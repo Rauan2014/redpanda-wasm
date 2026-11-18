@@ -4,7 +4,8 @@ Emulador de Nintendo 3DS rodando 100% no navegador (client-side via WebAssembly 
 
 ## Estrutura do Projeto
 
-- `scripts/build-wasm.sh`: Script automatizado para verificar/instalar o `emsdk`, clonar `wheremyfoodat/Panda3DS` (`--recursive`), configurar via `emcmake cmake` com flags WebGL2/SDL2/pthreads/IDBFS e copiar `.js`, `.wasm` e `.worker.js` para `public/wasm/`.
+- `scripts/build-wasm.sh`: Script automatizado para verificar/instalar CMake portátil e `emsdk`, clonar `wheremyfoodat/Panda3DS` e os fontes ARM DynCom (`azahar`), aplicar os patches em `wasm-patches/` (interpretador ARM11v6K/Thumb/VFPv2/CP15, WebGL2 ES 3.00, `emscripten_set_main_loop_arg`, pthreads e IDBFS) e compilar `Panda3DS.js`, `Panda3DS.wasm` e `Panda3DS.worker.js` em `public/wasm/`.
+- `wasm-patches/`: Overlay C++/CMake (`cpu_dyncom`, `arm_dyncom` shim, `apply.py`) que porta o Panda3DS para WebAssembly + interpretador ARM11 completo.
 - `scripts/serve.mjs`: Servidor estático local para `dist/` com headers COOP/COEP e MIME `application/wasm`.
 - `public/wasm/`: Artefatos WebAssembly do núcleo Panda3DS (`Panda3DS.js`, `Panda3DS.wasm`, `Panda3DS.worker.js`).
 - `public/roms/`: Contém `blockblast.3dsx` (214 KB, homebrew open-source Zlib `TheFilipcom4607/BlockBlast-3DS`) como ROM demo pré-carregada pronta para jogar nas duas telas.

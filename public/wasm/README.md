@@ -6,7 +6,7 @@ This directory holds the WebAssembly runtime artifacts loaded dynamically by `sr
 - `Panda3DS.wasm`
 - `Panda3DS.worker.js`
 
-Currently populated with a ready-to-run Panda3DS WebAssembly runtime (ARM interpreter + OpenGL ES / WebGL2 SDL2 build). To rebuild from source via Emscripten against a custom WASM-patched fork, run:
+Built directly from source (`wheremyfoodat/Panda3DS` + `wasm-patches/` ARM11/Thumb/VFPv2/CP15 DynCom interpreter + Emscripten WebGL2/SDL2/IDBFS/pthreads patches). To rebuild from scratch:
 
 ```bash
 bash scripts/build-wasm.sh
