@@ -111,6 +111,9 @@ const emulator = new Panda3DSEmulator({
     if (line.includes('Loaded an encrypted ROM')) {
       exitEmulatorView();
       setStatus('ROM .3ds criptografada: o Panda3DS no navegador precisa de ROM descriptografada (.3ds/.cci/.cxi ou .3dsx).');
+    } else if (line.includes('Should raise coproc exception')) {
+      exitEmulatorView();
+      setStatus('ROM incompatível com o interpretador WASM atual (instrução de coprocessador ARM não suportada). Teste uma ROM homebrew como Flappy Bird (DEMO).');
     } else if (line.includes('[FATAL]') && !line.includes('SDMC::OpenArchive')) {
       setStatus(line.replace(/\x1b\[[0-9;]*m/g, ''));
     }
