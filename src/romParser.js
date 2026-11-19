@@ -154,7 +154,7 @@ export function parseRomMetadata(fileName, bytes) {
     sizeBytes: bytes.byteLength,
     title: fallbackTitle,
     subtitle: `${(bytes.byteLength / 1024).toFixed(1)} KB • .${ext || 'rom'}`,
-    publisher: 'Nintendo 3DS Software',
+    publisher: 'Homebrew / Backup do Usuário',
     serial: deriveSerialFromName(fileName),
     iconCanvas: null,
     encrypted: false,

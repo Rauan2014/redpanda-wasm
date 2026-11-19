@@ -21,6 +21,10 @@ struct PandaDynComHost {
     void (*write64)(void* mem, std::uint32_t vaddr, std::uint64_t val) = nullptr;
     void (*serviceSVC)(void* kernel, std::uint32_t swi) = nullptr;
 
+    const std::uintptr_t* readTable = nullptr;
+    const std::uintptr_t* writeTable = nullptr;
+    std::uint32_t clockScalePct = 100;
+
     bool shouldYield() const {
         if (frameDone != nullptr && *frameDone) {
             return true;

@@ -15,11 +15,17 @@ export class CartridgeBanner3D {
   #labelCanvas;
   #labelCtx;
   #resizeObserver = null;
+  #intersectionObserver = null;
+  #stageEl = null;
   #rafId = null;
   #impulseTimerId = null;
   #lastFrameTime = 0;
   #elapsed = 0;
   #paused = false;
+  #suspended = false;
+  #visibilitySkipped = false;
+  #intersectionHidden = false;
+  #started = false;
   #reducedMotion = false;
   #dragging = false;
   #dragMoved = false;
@@ -47,7 +53,7 @@ export class CartridgeBanner3D {
       alpha: true,
       powerPreference: 'high-performance',
     });
-    this.#renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio || 1, 2), 3));
+    this.#renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
     this.#scene = new THREE.Scene();
     this.#camera = new THREE.PerspectiveCamera(34, 400 / 240, 0.1, 30);
@@ -55,10 +61,12 @@ export class CartridgeBanner3D {
     this.#camera.lookAt(0, 0, 0);
 
     this.#syncCanvasResolution();
-    if (typeof ResizeObserver !== 'undefined' && this.#canvas.parentElement) {
+    this.#stageEl = this.#canvas.parentElement;
+    if (typeof ResizeObserver !== 'undefined' && this.#stageEl) {
       this.#resizeObserver = new ResizeObserver(() => this.#syncCanvasResolution());
-      this.#resizeObserver.observe(this.#canvas.parentElement);
+      this.#resizeObserver.observe(this.#stageEl);
     }
+    this.#bindVisibilityObservers();
 
     this.#setupLighting();
     this.#initLabelTexture();
@@ -75,10 +83,66 @@ export class CartridgeBanner3D {
     const rect = this.#canvas.getBoundingClientRect();
     const cssW = Math.max(400, Math.round(rect.width || 400));
     const cssH = Math.max(240, Math.round(rect.height || 240));
-    this.#renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio || 1, 2), 3));
+    this.#renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.#renderer.setSize(cssW, cssH, false);
     this.#camera.aspect = cssW / cssH;
     this.#camera.updateProjectionMatrix();
+  }
+
+  #shouldRender() {
+    return (
+      this.#started &&
+      !this.#suspended &&
+      !this.#visibilitySkipped &&
+      !this.#intersectionHidden &&
+      !document.hidden
+    );
+  }
+
+  #cancelLoop() {
+    if (this.#rafId !== null) {
+      cancelAnimationFrame(this.#rafId);
+      this.#rafId = null;
+    }
+  }
+
+  #ensureLoop() {
+    if (!this.#shouldRender() || this.#rafId !== null) return;
+    this.#lastFrameTime = performance.now();
+    const tick = (now) => {
+      if (!this.#shouldRender()) {
+        this.#rafId = null;
+        return;
+      }
+      this.#rafId = requestAnimationFrame(tick);
+      const dtMs = Math.min(64, Math.max(1, now - this.#lastFrameTime));
+      this.#lastFrameTime = now;
+      this.#updateAndRender(dtMs);
+    };
+    this.#rafId = requestAnimationFrame(tick);
+  }
+
+  #bindVisibilityObservers() {
+    if (this.#stageEl) {
+      this.#stageEl.addEventListener('contentvisibilityautostatechange', (e) => {
+        this.#visibilitySkipped = Boolean(e.skipped);
+        if (this.#visibilitySkipped) this.#cancelLoop();
+        else this.#ensureLoop();
+      });
+      if (typeof IntersectionObserver !== 'undefined') {
+        this.#intersectionObserver = new IntersectionObserver((entries) => {
+          const entry = entries[entries.length - 1];
+          this.#intersectionHidden = entry ? !entry.isIntersecting : false;
+          if (this.#intersectionHidden) this.#cancelLoop();
+          else this.#ensureLoop();
+        });
+        this.#intersectionObserver.observe(this.#stageEl);
+      }
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) this.#cancelLoop();
+      else this.#ensureLoop();
+    });
   }
 
   #setupLighting() {
@@ -296,7 +360,7 @@ export class CartridgeBanner3D {
     ctx.font = '800 11.5px "Segoe UI", system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const shortName = (slot.cartTitle || slot.title || 'NINTENDO 3DS').slice(0, 14);
+    const shortName = (slot.cartTitle || slot.title || 'PANDA3DS WEB').slice(0, 14);
     ctx.fillText(shortName, stripW + (W - stripW) / 2, 92.5, W - stripW - 14);
 
     // Serial code CTR-P-...
@@ -304,22 +368,22 @@ export class CartridgeBanner3D {
     ctx.font = '700 9.5px ui-monospace, Menlo, monospace';
     ctx.fillText((slot.serial || 'CTR-P-3DSW').slice(0, 14), stripW + (W - stripW) / 2, 115, W - stripW - 12);
 
-    // Signature white lateral "Nintendo 3DS" strip on the left side
+    // Neutral lateral strip on the left side (descriptive, non-trademarked)
     ctx.fillStyle = '#f8fafc';
     ctx.fillRect(0, 0, stripW, H);
     ctx.fillStyle = '#cbd5e1';
     ctx.fillRect(stripW - 2, 0, 2, H);
 
-    // Red accent square badge at top of white strip
-    ctx.fillStyle = '#dc2626';
+    // Cyan/blue accent square badge at top of lateral strip
+    ctx.fillStyle = '#0284c7';
     ctx.fillRect(4, 6, 14, 14);
     ctx.fillStyle = '#ffffff';
-    ctx.font = '800 7px "Segoe UI", system-ui, sans-serif';
+    ctx.font = '800 5.5px "Segoe UI", system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('3DS', 11, 13.5);
+    ctx.fillText('WASM', 11, 13.5);
 
-    // Vertical "Nintendo 3DS" branding along the white strip
+    // Vertical "Panda3DS Web" project label along the white strip
     ctx.save();
     ctx.translate(11, 74);
     ctx.rotate(-Math.PI / 2);
@@ -327,7 +391,7 @@ export class CartridgeBanner3D {
     ctx.font = '800 10.5px "Segoe UI", system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Nintendo 3DS', 0, 0);
+    ctx.fillText('Panda3DS Web', 0, 0);
     ctx.restore();
 
     ctx.restore();
@@ -424,35 +488,42 @@ export class CartridgeBanner3D {
     return this.#paused;
   }
 
+  get suspended() {
+    return this.#suspended;
+  }
+
+  suspend() {
+    this.#suspended = true;
+    this.#cancelLoop();
+  }
+
+  resume() {
+    this.#suspended = false;
+    this.#ensureLoop();
+  }
+
   start() {
-    if (this.#rafId !== null) return;
-    this.#lastFrameTime = performance.now();
-    const tick = (now) => {
-      this.#rafId = requestAnimationFrame(tick);
-      const dtMs = Math.min(64, Math.max(1, now - this.#lastFrameTime));
-      this.#lastFrameTime = now;
-      this.#updateAndRender(dtMs);
-    };
-    this.#rafId = requestAnimationFrame(tick);
+    this.#started = true;
+    this.#ensureLoop();
   }
 
   stop() {
-    if (this.#rafId !== null) {
-      cancelAnimationFrame(this.#rafId);
-      this.#rafId = null;
-    }
+    this.#started = false;
+    this.#cancelLoop();
     if (this.#impulseTimerId !== null) {
       clearInterval(this.#impulseTimerId);
       this.#impulseTimerId = null;
     }
     this.#resizeObserver?.disconnect();
     this.#resizeObserver = null;
+    this.#intersectionObserver?.disconnect();
+    this.#intersectionObserver = null;
   }
 
   #startPeriodicImpulse() {
     if (this.#impulseTimerId !== null) clearInterval(this.#impulseTimerId);
     this.#impulseTimerId = setInterval(() => {
-      if (!document.hidden && !this.#paused && !this.#reducedMotion) {
+      if (this.#shouldRender() && !this.#paused && !this.#reducedMotion) {
         this.triggerSpinImpulse(0.24);
       }
     }, CartridgeBanner3D.PERIODIC_IMPULSE_MS);

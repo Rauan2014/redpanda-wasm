@@ -84,18 +84,27 @@ if [[ ! -d "$AZAHAR_DIR/.git" ]]; then
 fi
 
 echo "[3/6] Applying Emscripten, WebGL2, and ARM11 DynCom interpreter patches..."
+git -C "$PANDA3DS_DIR" checkout -- .
 python3 "$PATCHES_DIR/apply.py" "$PATCHES_DIR" "$PANDA3DS_DIR" "$AZAHAR_DIR"
+
+if [[ -d "$BUILD_DIR" ]]; then
+  if [[ ! -f "$BUILD_DIR/CMakeCache.txt" ]] || [[ ! -f "$BUILD_DIR/Makefile" ]] || ! grep -q -- "-msimd128" "$BUILD_DIR/CMakeCache.txt" || ! grep -q -- "-flto" "$BUILD_DIR/CMakeCache.txt"; then
+    echo "Purging stale/incomplete CMake build directory..."
+    rm -rf "$BUILD_DIR"
+  fi
+fi
 
 mkdir -p "$BUILD_DIR"
 pushd "$BUILD_DIR" >/dev/null
 
 echo "[4/6] Configuring Panda3DS with emcmake cmake..."
-CXX_FLAGS="-O3 -pthread -fwasm-exceptions -sUSE_SDL=2"
-C_FLAGS="-O3 -pthread -sUSE_SDL=2"
-EXE_LINKER_FLAGS="-pthread -fwasm-exceptions -sUSE_SDL=2 -sUSE_WEBGL2=1 -sFULL_ES3=1 -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=512MB -sMAXIMUM_MEMORY=2GB -sSTACK_SIZE=2MB -sPTHREAD_POOL_SIZE=4 -sINVOKE_RUN=0 -sEXIT_RUNTIME=0 -sEXPORTED_FUNCTIONS=['_main','_ma_device__on_notification_unlocked','_emscripten_pause_main_loop','_emscripten_resume_main_loop','_panda_set_web_buttons','_panda_set_web_circlepad','_panda_set_web_cstick','_panda_reset_web_input'] -sEXPORTED_RUNTIME_METHODS=['FS','IDBFS','callMain','HEAPF32'] -lidbfs.js"
+CXX_FLAGS="-O3 -msimd128 -flto -pthread -fwasm-exceptions -sUSE_SDL=2"
+C_FLAGS="-O3 -msimd128 -flto -pthread -sUSE_SDL=2"
+EXE_LINKER_FLAGS="-O3 -msimd128 -flto -pthread -fwasm-exceptions -sUSE_SDL=2 -sUSE_WEBGL2=1 -sFULL_ES3=1 -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=512MB -sMAXIMUM_MEMORY=2GB -sSTACK_SIZE=2MB -sPTHREAD_POOL_SIZE=1 -sENVIRONMENT=web,worker -sINVOKE_RUN=0 -sEXIT_RUNTIME=0"
 
 emcmake cmake .. \
   -DCMAKE_BUILD_TYPE=Release \
+  -DENABLE_LTO=OFF \
   -DENABLE_QT_GUI=OFF \
   -DENABLE_SDL2=ON \
   -DENABLE_VULKAN=OFF \

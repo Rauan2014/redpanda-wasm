@@ -51,8 +51,12 @@ void clearCache(DynComInstance* instance) {
     trans_cache_buf_top = 0;
 }
 
-void clearCacheRange(DynComInstance* instance, std::uint32_t, std::uint32_t) {
-    clearCache(instance);
+void clearCacheRange(DynComInstance* instance, std::uint32_t start, std::uint32_t size) {
+    if (size == 0 || size >= 0x400000u) {
+        clearCache(instance);
+        return;
+    }
+    instance->state.instruction_cache.invalidateRange(start, size);
 }
 
 std::uint32_t getCPSR(const DynComInstance* instance) {

@@ -5,7 +5,7 @@ import { CartridgeBanner3D } from './cartridge3d.js';
 import { SaveManager } from './saves.js';
 import { Panda3DSEmulator, HID_KEYS } from './emulator.js';
 import { createInputController } from './input-controller.js';
-import { initAdSense } from './adsense.js';
+import { initAdSense, getAdSenseConfig } from './adsense.js';
 
 const DEMO_ROM_URL = '/roms/blockblast.3dsx';
 const DEMO_ROM_NAME = 'blockblast.3dsx';
@@ -113,6 +113,9 @@ const gamepadStatusPillEl = document.getElementById('gamepad-status-pill');
 const selectMouseModeEl = document.getElementById('select-mouse-mode');
 const selectGamepadLayoutEl = document.getElementById('select-gamepad-layout');
 const chkMouseMirrorDpadEl = document.getElementById('chk-mouse-mirror-dpad');
+const selectCpuClockEl = document.getElementById('select-cpu-clock');
+const chkEmuAudioEl = document.getElementById('chk-emu-audio');
+const emuFpsBadgeEl = document.getElementById('emu-fps-badge');
 
 const circlePadWellEl = document.getElementById('circle-pad-well');
 const circlePadThumbEl = document.getElementById('circle-pad-thumb');
@@ -120,6 +123,15 @@ const circlePadThumbEl = document.getElementById('circle-pad-thumb');
 const adBannerSlotEl = document.getElementById('ad-banner-slot');
 const adsenseUnitEl = document.getElementById('adsense-unit');
 const adSlotNoteEl = document.getElementById('ad-slot-note');
+
+const supportDialog = document.getElementById('support-dialog');
+const openSupportModalBtn = document.getElementById('open-support-modal-btn');
+const footerSupportBtn = document.getElementById('footer-support-btn');
+const closeSupportDialogBtn = document.getElementById('close-support-dialog-btn');
+const modalPixKeyValueEl = document.getElementById('modal-pix-key-value');
+const modalCopyPixBtn = document.getElementById('modal-copy-pix-btn');
+const modalKofiLinkEl = document.getElementById('modal-kofi-link');
+const modalGithubLinkEl = document.getElementById('modal-github-link');
 
 const audio = new HomeAudioSynth();
 const cartridge = new CartridgeBanner3D(cartridgeCanvas, {
@@ -135,10 +147,10 @@ const emulator = new Panda3DSEmulator({
     console.info(line);
     if (line.includes('Loaded an encrypted ROM')) {
       exitEmulatorView();
-      setStatus('ROM .3ds criptografada: o Panda3DS no navegador precisa de ROM descriptografada (.3ds/.cci/.cxi ou .3dsx).');
+      setStatus('Arquivo criptografado: o Panda3DS Web não inclui chaves proprietárias. Utilize homebrew (.3dsx) ou backup pessoal descriptografado.');
     } else if (line.includes('Should raise coproc exception')) {
       exitEmulatorView();
-      setStatus('ROM incompatível com o interpretador WASM atual (instrução de coprocessador ARM não suportada). Teste uma ROM homebrew como Flappy Bird (DEMO).');
+      setStatus('Aplicação incompatível com o interpretador WASM atual (instrução de coprocessador ARM não suportada). Teste o homebrew Block Blast (DEMO).');
     } else if (line.includes('[FATAL]') && !line.includes('SDMC::OpenArchive') && !line.includes('RenameFile')) {
       setStatus(line.replace(/\x1b\[[0-9;]*m/g, ''));
     }
@@ -146,6 +158,10 @@ const emulator = new Panda3DSEmulator({
   onAbort: (reason) => {
     exitEmulatorView();
     setStatus(`Emulação encerrada: ${reason}`);
+  },
+  onFps: (fps) => {
+    if (!emuFpsBadgeEl) return;
+    emuFpsBadgeEl.textContent = fps === null ? '-- FPS' : `${fps} FPS`;
   },
 });
 
@@ -348,9 +364,14 @@ async function handleRomFileSelected(file) {
 }
 
 function enterEmulatorView() {
+  cartridge.suspend();
   topEmuCanvas.hidden = false;
   bottomEmuCanvas.hidden = false;
   backHomeBtn.hidden = false;
+  if (emuFpsBadgeEl) {
+    emuFpsBadgeEl.textContent = '-- FPS';
+    emuFpsBadgeEl.hidden = false;
+  }
 }
 
 function exitEmulatorView() {
@@ -358,6 +379,11 @@ function exitEmulatorView() {
   topEmuCanvas.hidden = true;
   bottomEmuCanvas.hidden = true;
   backHomeBtn.hidden = true;
+  if (emuFpsBadgeEl) {
+    emuFpsBadgeEl.hidden = true;
+    emuFpsBadgeEl.textContent = '-- FPS';
+  }
+  cartridge.resume();
   setStatus('Retornou ao HOME Menu. Saves sincronizados com IDBFS (/user).');
 }
 
@@ -566,6 +592,35 @@ modalClearSaveBtn.addEventListener('click', async () => {
 closeSaveDialogBtn.addEventListener('click', () => saveDialog.close());
 closeCoreDialogBtn.addEventListener('click', () => coreNoticeDialog.close());
 closeControlsDialogBtn.addEventListener('click', () => controlsDialog.close());
+closeSupportDialogBtn?.addEventListener('click', () => supportDialog?.close());
+
+function openSupportDialog() {
+  if (!supportDialog) return;
+  const cfg = getAdSenseConfig();
+  if (modalPixKeyValueEl) modalPixKeyValueEl.textContent = cfg.pixKey;
+  if (modalKofiLinkEl) modalKofiLinkEl.href = cfg.kofiUrl;
+  if (modalGithubLinkEl) modalGithubLinkEl.href = cfg.githubUrl;
+  audio.playModal(true);
+  supportDialog.showModal();
+}
+
+openSupportModalBtn?.addEventListener('click', openSupportDialog);
+footerSupportBtn?.addEventListener('click', openSupportDialog);
+
+modalCopyPixBtn?.addEventListener('click', async () => {
+  const cfg = getAdSenseConfig();
+  try {
+    await navigator.clipboard.writeText(cfg.pixKey);
+    audio.playSelect();
+    modalCopyPixBtn.textContent = '✓ Pix Copiado!';
+    setStatus(`Chave Pix (${cfg.pixKey}) copiada para a área de transferência.`);
+    setTimeout(() => {
+      modalCopyPixBtn.textContent = '❖ Copiar Pix';
+    }, 2600);
+  } catch {
+    setStatus(`Chave Pix: ${cfg.pixKey}`);
+  }
+});
 
 saveDialog.addEventListener('close', () => {
   saveDialog.returnValue = '';
@@ -576,6 +631,10 @@ coreNoticeDialog.addEventListener('close', () => {
 });
 controlsDialog.addEventListener('close', () => {
   controlsDialog.returnValue = '';
+  audio.playModal(false);
+});
+supportDialog?.addEventListener('close', () => {
+  supportDialog.returnValue = '';
   audio.playModal(false);
 });
 
@@ -606,6 +665,17 @@ audioToggleBtn.addEventListener('click', () => {
   const muted = audio.toggleMute();
   audioToggleBtn.textContent = muted ? '✕' : '♪';
   audioToggleBtn.setAttribute('aria-label', muted ? 'Ativar efeitos sonoros' : 'Silenciar efeitos sonoros');
+  if (emulator.isRunning) {
+    const enabled = !muted;
+    if (chkEmuAudioEl) chkEmuAudioEl.checked = enabled;
+    try {
+      localStorage.setItem(EMU_AUDIO_STORAGE_KEY, String(enabled));
+    } catch {
+      // Ignore storage unavailability
+    }
+    emulator.setEmuAudioEnabled(enabled);
+    if (enabled) emulator.unlockAudio();
+  }
 });
 
 backHomeBtn.addEventListener('click', () => exitEmulatorView());
@@ -695,7 +765,7 @@ const MOUSE_MODE_LABELS = {
 };
 
 function isAnyModalOpen() {
-  return saveDialog.open || coreNoticeDialog.open || controlsDialog.open;
+  return saveDialog.open || coreNoticeDialog.open || controlsDialog.open || Boolean(supportDialog?.open);
 }
 
 function navigateHomeGrid(dx, dy) {
@@ -741,6 +811,7 @@ const inputController = createInputController({
     if (saveDialog.open) saveDialog.close();
     if (coreNoticeDialog.open) coreNoticeDialog.close();
     if (controlsDialog.open) controlsDialog.close();
+    if (supportDialog?.open) supportDialog.close();
   },
   onHomeToggle: () => {
     if (emulator.isRunning) {
@@ -794,6 +865,55 @@ chkMouseMirrorDpadEl.addEventListener('change', () => {
   inputController.setMouseMirrorDpad(chkMouseMirrorDpadEl.checked);
 });
 
+const CPU_CLOCK_STORAGE_KEY = 'p3ds.cpuClockScale';
+const EMU_AUDIO_STORAGE_KEY = 'p3ds.emuAudio';
+
+function initPerformancePreferences() {
+  let savedClock = '100';
+  let savedAudio = true;
+  try {
+    const rawClock = localStorage.getItem(CPU_CLOCK_STORAGE_KEY);
+    if (rawClock && ['100', '75', '50', '35'].includes(rawClock)) {
+      savedClock = rawClock;
+    }
+    const rawAudio = localStorage.getItem(EMU_AUDIO_STORAGE_KEY);
+    if (rawAudio === 'false') {
+      savedAudio = false;
+    }
+  } catch {
+    // Ignore storage unavailability
+  }
+
+  if (selectCpuClockEl) {
+    selectCpuClockEl.value = savedClock;
+    selectCpuClockEl.addEventListener('change', () => {
+      const pct = Number(selectCpuClockEl.value) || 100;
+      emulator.setCpuClockScale(pct);
+      try {
+        localStorage.setItem(CPU_CLOCK_STORAGE_KEY, String(pct));
+      } catch {
+        // Ignore storage unavailability
+      }
+    });
+  }
+  emulator.setCpuClockScale(Number(savedClock));
+
+  if (chkEmuAudioEl) {
+    chkEmuAudioEl.checked = savedAudio;
+    chkEmuAudioEl.addEventListener('change', () => {
+      const enabled = chkEmuAudioEl.checked;
+      emulator.setEmuAudioEnabled(enabled);
+      if (enabled) emulator.unlockAudio();
+      try {
+        localStorage.setItem(EMU_AUDIO_STORAGE_KEY, String(enabled));
+      } catch {
+        // Ignore storage unavailability
+      }
+    });
+  }
+  emulator.setEmuAudioEnabled(savedAudio);
+}
+
 // Physical console D-Pad + A/B clicks in HOME Menu (gameplay holds handled by inputController)
 document.querySelectorAll('[data-nav]').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -812,6 +932,7 @@ document.querySelectorAll('.face-btn').forEach((btn) => {
       if (saveDialog.open) saveDialog.close();
       if (coreNoticeDialog.open) coreNoticeDialog.close();
       if (controlsDialog.open) controlsDialog.close();
+      if (supportDialog?.open) supportDialog.close();
     }
   });
 });
@@ -823,6 +944,7 @@ document.querySelectorAll('.face-btn').forEach((btn) => {
 updateTopBarIsolationBadge();
 startLiveClock();
 void initBatteryIndicator();
+initPerformancePreferences();
 selectSlot('demo', { impulse: false, sound: false });
 cartridge.start();
 inputController.start();
@@ -830,5 +952,6 @@ initAdSense({
   insElement: adsenseUnitEl,
   statusElement: adSlotNoteEl,
   containerElement: adBannerSlotEl,
+  onOpenSupport: openSupportDialog,
 });
 void preloadDemoRom();

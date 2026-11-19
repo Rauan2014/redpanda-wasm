@@ -112,6 +112,8 @@
                 aria-label="Saída de vídeo da Tela Superior do Nintendo 3DS"
               ></canvas>
 
+              <span class="emu-fps-badge" id="emu-fps-badge" hidden aria-hidden="true">-- FPS</span>
+
               <button
                 type="button"
                 class="emu-back-home-btn"
@@ -305,6 +307,9 @@
         <button type="button" class="utility-btn" id="open-saves-modal-btn">
           Gerenciar /user
         </button>
+        <button type="button" class="utility-btn utility-btn-support" id="open-support-modal-btn">
+          ❤ Apoiar (Pix / Ko-fi)
+        </button>
       </div>
 
       <div class="utility-telemetry">
@@ -318,11 +323,11 @@
       </p>
     </section>
 
-    <!-- Espaço de publicidade Google AdSense (oculto automaticamente em Tela Cheia) -->
-    <aside class="ad-banner-slot" id="ad-banner-slot" aria-label="Publicidade e informações do projeto">
+    <!-- Espaço de publicidade e apoio ao projeto (com margem de segurança contra cliques acidentais e oculto em Tela Cheia) -->
+    <aside class="ad-banner-slot" id="ad-banner-slot" aria-label="Publicidade e apoio ao projeto">
       <div class="ad-slot-header">
-        <span class="ad-badge">PUBLICIDADE</span>
-        <a class="ad-info-link" href="/sobre.html">Sobre o projeto, guia de controles &amp; política</a>
+        <span class="ad-badge">PUBLICIDADE / APOIO AO PROJETO</span>
+        <span class="ad-policy-tag">Sem Pop-unders • Execução 100% Local</span>
       </div>
       <div class="ad-slot-frame">
         <ins
@@ -337,6 +342,132 @@
         <p class="ad-slot-note" id="ad-slot-note"></p>
       </div>
     </aside>
+
+    <!-- Documentação Técnica, Requisitos, FAQ e Aviso Legal (Conformidade Webmaster & Propriedade Intelectual) -->
+    <section class="doc-section" id="documentacao" aria-label="Documentação técnica, requisitos, perguntas frequentes e aviso legal">
+      <div class="doc-grid">
+        <article class="doc-card">
+          <h2>Sobre o Panda3DS Web (Emulação ARM11 em WebAssembly)</h2>
+          <p>
+            O <strong>Panda3DS Web</strong> é uma plataforma educacional e experimental de código aberto que porta o emulador
+            Panda3DS para execução direta no navegador utilizando <strong>WebAssembly (WASM)</strong>, renderização gráfica acelerada
+            por hardware via <strong>WebGL2 (OpenGL ES 3.0)</strong>, síntese de áudio <strong>Web Audio DSP</strong> e sistema de
+            arquivos persistente local com <code>IndexedDB (IDBFS)</code>.
+          </p>
+          <p>
+            A interface reproduz a experiência de navegação em duas telas (proporções nativas de <code>400×240</code> na tela superior
+            e <code>320×240</code> na tela tátil inferior) e traz pré-instalado exclusivamente o jogo homebrew open-source
+            <strong>Block Blast</strong> (distribuído no formato <code>.3dsx</code> sob licença permissiva Zlib) para demonstração imediata.
+          </p>
+        </article>
+
+        <article class="doc-card">
+          <h2>Requisitos de Sistema e Guia Rápido de Uso</h2>
+          <ul class="doc-list">
+            <li>
+              <strong>Navegadores Compatíveis:</strong> Google Chrome 110+, Microsoft Edge 110+, Mozilla Firefox 115+ ou Safari 16.4+
+              com aceleração gráfica WebGL2 e suporte a WebAssembly multithread.
+            </li>
+            <li>
+              <strong>Isolamento de Origem (COOP/COEP):</strong> O indicador <code>SAB OK</code> na barra superior do console confirma que
+              <code>SharedArrayBuffer</code> está ativo para desempenho máximo do interpretador ARM11.
+            </li>
+            <li>
+              <strong>Formatos Aceitos Localmente:</strong> Aplicações homebrew (<code>.3dsx</code>) e backups pessoais descriptografados
+              (<code>.3ds</code>, <code>.cci</code>, <code>.cxi</code>) carregados diretamente do armazenamento do seu dispositivo.
+            </li>
+            <li>
+              <strong>Gerenciamento de Saves:</strong> O diretório virtual <code>/user</code> salva o progresso automaticamente no
+              <code>IndexedDB</code> a cada retorno ao HOME Menu, permitindo exportar e importar backups completos em <code>.zip</code>.
+            </li>
+          </ul>
+        </article>
+      </div>
+
+      <!-- Acordeão Nativo de Perguntas Frequentes (FAQ) -->
+      <section class="doc-card accordion" id="faq-section" aria-labelledby="faq-heading">
+        <h2 id="faq-heading">Perguntas Frequentes (FAQ)</h2>
+
+        <details open>
+          <summary>Os arquivos selecionados no meu computador ou celular são enviados para algum servidor?</summary>
+          <div class="accordion-body">
+            <p>
+              <strong>Não.</strong> Toda a leitura de pacotes <code>.3dsx</code>, <code>.3ds</code>, <code>.cci</code>, <code>.cxi</code> e
+              arquivos de salvamento ocorre 100% localmente na memória RAM do seu navegador através da <em>Web File API</em> e do sistema
+              de arquivos virtual do Emscripten (<code>MEMFS</code> / <code>IDBFS</code>). Nenhum binário de jogo é transmitido pela rede.
+            </p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Por que arquivos criptografados não abrem no emulador?</summary>
+          <div class="accordion-body">
+            <p>
+              Em respeito às leis de propriedade intelectual e direitos autorais (DMCA / Lei nº 9.610/1998), o Panda3DS Web
+              <strong>não inclui chaves criptográficas proprietárias (AES keys), BIOS ou arquivos de firmware de sistema</strong>.
+              O núcleo executa apenas aplicações homebrew de código aberto (<code>.3dsx</code>) ou dumps pessoais previamente
+              descriptografados pelo próprio titular legítimo do cartucho físico.
+            </p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Como melhorar a performance e a taxa de quadros (FPS) no navegador?</summary>
+          <div class="accordion-body">
+            <p>
+              Clique no botão <strong>Controle / Teclado</strong> na barra utilitária e ajuste a opção <strong>Clock ARM11</strong> para
+              <code>75% (Otimizado)</code> ou <code>50% (Modo Rápido — Jogos 2D)</code>. Isso reduz a quantidade de ciclos de CPU emulados por
+              quadro de vídeo, aumentando a fluidez da renderização WebGL2 em notebooks e dispositivos móveis.
+            </p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Como conectar controles Bluetooth/USB ou usar o mouse como analógico?</summary>
+          <div class="accordion-body">
+            <p>
+              Basta conectar qualquer controle compatível (Xbox, PlayStation DualShock/DualSense, Switch Pro Controller ou 8BitDo) e
+              pressionar um botão para ativar a <em>Web Gamepad API</em>. Se preferir jogar no mouse e teclado, o botão
+              <strong>Direcional Mouse</strong> permite usar o movimento do cursor para controlar o Circle Pad analógico enquanto clica
+              na tela tátil inferior.
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <!-- Aviso Legal e Declaração de Propriedade Intelectual (Disclaimer) -->
+      <article class="doc-card legal-disclaimer-card" id="aviso-legal">
+        <h2>Aviso Legal e Propriedade Intelectual (Disclaimer)</h2>
+        <p>
+          <strong>1. Declaração de Não Afiliação e Marcas Registradas:</strong> Este projeto e este website são iniciativas independentes
+          de estudo de arquitetura de computadores e compilação WebAssembly, <strong>não possuindo qualquer vínculo, afiliação, patrocínio,
+          licenciamento ou endosso da Nintendo Co., Ltd.</strong> ou de suas subsidiárias. As denominações "Nintendo" e "3DS" são marcas
+          registradas de seus respectivos titulares e são citadas neste site exclusivamente em caráter descritivo e informativo de
+          interoperabilidade técnica.
+        </p>
+        <p>
+          <strong>2. Política Estrita Contra Pirataria (Zero ROMs Comerciais):</strong> Este software <strong>não inclui, não hospeda,
+          não distribui e não fornece links ou incentivos para download</strong> de ROMs comerciais, ISOs, imagens de cartuchos protegidos,
+          BIOS, NAND, firmwares ou chaves de criptografia. O único arquivo executável distribuído com a página é a demonstração homebrew
+          de código aberto <code>blockblast.3dsx</code>. O usuário é integralmente responsável por utilizar apenas softwares homebrew
+          de livre distribuição ou cópias de backup pessoais obtidas legalmente de sua própria mídia física.
+        </p>
+      </article>
+    </section>
+
+    <!-- Rodapé Institucional e Legal Visível (LGPD / GDPR / Cláusula 10) -->
+    <footer class="site-footer" aria-label="Rodapé institucional e links legais">
+      <nav class="footer-nav" aria-label="Navegação legal e institucional">
+        <a href="/sobre.html">Sobre &amp; Guia Completo</a>
+        <a href="/sobre.html#privacidade">Política de Privacidade &amp; Cookies</a>
+        <a href="/sobre.html#termos">Termos de Uso</a>
+        <a href="/sobre.html#contato">Contato &amp; DMCA</a>
+        <button type="button" class="footer-link-btn" id="footer-support-btn">❤ Apoiar Projeto (Pix / Ko-fi)</button>
+      </nav>
+      <p class="footer-copy">
+        Panda3DS Web — Emulação educacional client-side em WebAssembly (GPLv3 / Zlib Demo). Não afiliado à Nintendo Co., Ltd.
+      </p>
+    </footer>
 
     <!-- Inputs de arquivo ocultos -->
     <input
@@ -438,6 +569,21 @@
             <input type="checkbox" id="chk-mouse-mirror-dpad" checked>
             <span>Espelhar movimento do mouse no D-Pad (jogos 2D/homebrew)</span>
           </label>
+
+          <label class="control-field" for="select-cpu-clock">
+            <span>Clock ARM11 (Performance / FPS)</span>
+            <select id="select-cpu-clock">
+              <option value="100">100% (Padrão)</option>
+              <option value="75">75% (Otimizado)</option>
+              <option value="50">50% (Modo Rápido — Jogos 2D)</option>
+              <option value="35">35% (Ultra)</option>
+            </select>
+          </label>
+
+          <label class="control-check" for="chk-emu-audio">
+            <input type="checkbox" id="chk-emu-audio" checked>
+            <span>Ativar áudio do emulador (DSP)</span>
+          </label>
         </div>
 
         <table class="controls-map-table">
@@ -486,6 +632,64 @@
       <div class="dialog-footer">
         <form method="dialog">
           <button type="submit" class="dock-btn dock-btn-primary" autofocus>Concluir</button>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- Modal nativo: Apoio Direto (Pix / Ko-fi / GitHub Sponsors) & Redes de Anúncio -->
+    <dialog id="support-dialog" class="n3ds-dialog" closedby="any" aria-labelledby="support-dialog-title">
+      <div class="dialog-header">
+        <h2 id="support-dialog-title">❤ Apoiar o Projeto (Pix, Ko-fi &amp; Publicidade Limpa)</h2>
+        <button type="button" class="dialog-close-btn" id="close-support-dialog-btn" aria-label="Fechar modal de apoio">✕</button>
+      </div>
+      <div class="dialog-body">
+        <p class="dialog-desc">
+          O <strong>Panda3DS Web</strong> é mantido sem pop-unders ou anúncios intrusivos que atrapalhem os controles do emulador.
+          Você pode apoiar diretamente o projeto via Pix ou plataformas de financiamento coletivo:
+        </p>
+
+        <div class="support-box">
+          <div class="support-row">
+            <div class="support-key-meta">
+              <span class="support-label">Chave Pix (E-mail / Aleatória)</span>
+              <code id="modal-pix-key-value">apoio@panda3dsweb.dev</code>
+            </div>
+            <button type="button" class="dock-btn dock-btn-primary" id="modal-copy-pix-btn">❖ Copiar Pix</button>
+          </div>
+
+          <div class="support-links-grid">
+            <a
+              href="https://ko-fi.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="utility-btn support-ext-link"
+              id="modal-kofi-link"
+            >
+              ☕ Apoiar no Ko-fi
+            </a>
+            <a
+              href="https://github.com/wheremyfoodat/Panda3DS"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="utility-btn support-ext-link"
+              id="modal-github-link"
+            >
+              ★ Repositório Upstream Panda3DS
+            </a>
+          </div>
+        </div>
+
+        <div class="core-checklist">
+          <p class="dialog-desc"><strong>Configuração de Monetização (Variáveis de Ambiente):</strong></p>
+          <p class="dialog-desc">• <code>VITE_PIX_KEY</code> e <code>VITE_KOFI_URL</code>: Define sua chave Pix e link Ko-fi/Sponsors.</p>
+          <p class="dialog-desc">• <code>VITE_AADS_UNIT_ID</code>: Ativa banner A-Ads (aprovação imediata, pagamento diário em Cripto, compatível com COEP).</p>
+          <p class="dialog-desc">• <code>VITE_ADSTERRA_BANNER_URL</code>: Ativa banner Display Nativo (Adsterra / Monetag sem pop-under).</p>
+          <p class="dialog-desc">• <code>VITE_ADSENSE_CLIENT</code> + <code>VITE_ADSENSE_SLOT</code>: Ativa Google AdSense quando desejado.</p>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <form method="dialog">
+          <button type="submit" class="dock-btn dock-btn-primary" autofocus>Fechar</button>
         </form>
       </div>
     </dialog>

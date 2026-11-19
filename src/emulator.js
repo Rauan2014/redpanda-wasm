@@ -7,9 +7,10 @@
  * - Forwards Bottom Screen pointer drags/clicks as SDL2 mouse events
  */
 
-const SYNC_INTERVAL_MS = 5000;
+const SYNC_INTERVAL_MS = 30000;
 const CIRCLE_PAD_MAX = 0x9c;
 const C_STICK_MAX = 2047;
+const LOG_THROTTLE_MS = 250;
 
 /** Panda3DS HID::Keys bitmasks aligned with include/services/hid.hpp */
 export const HID_KEYS = Object.freeze({
@@ -59,8 +60,8 @@ export class Panda3DSEmulator {
   #onStatus;
   #onLog;
   #onAbort;
+  #onFps;
   #module = null;
-  #mirrorRafId = null;
   #syncTimerId = null;
   #syncInFlight = false;
   #running = false;
@@ -69,20 +70,30 @@ export class Panda3DSEmulator {
   #idbfsMounted = false;
   #initHandled = false;
   #patchedWebGL = false;
+  #cpuClockScalePct = 100;
+  #emuAudioEnabled = true;
+  #accelShaders = true;
+  #fpsFrames = 0;
+  #fpsWindowStart = 0;
+  #lastInfoLogAt = 0;
 
-  constructor({ emuCanvas, topCanvas, bottomCanvas, onStatus, onLog, onAbort }) {
+  constructor({ emuCanvas, topCanvas, bottomCanvas, onStatus, onLog, onAbort, onFps }) {
     this.#emuCanvas = emuCanvas;
     this.#topCanvas = topCanvas;
     this.#bottomCanvas = bottomCanvas;
-    this.#topCtx = topCanvas.getContext('2d');
-    this.#bottomCtx = bottomCanvas.getContext('2d');
+    this.#topCtx = topCanvas.getContext('2d', { alpha: false });
+    this.#bottomCtx = bottomCanvas.getContext('2d', { alpha: false });
+    if (this.#topCtx) this.#topCtx.imageSmoothingEnabled = false;
+    if (this.#bottomCtx) this.#bottomCtx.imageSmoothingEnabled = false;
     this.#onStatus = onStatus;
     this.#onLog = onLog;
     this.#onAbort = onAbort;
+    this.#onFps = onFps;
 
     this.#patchEmuCanvasWebGL();
     this.#bindBottomTouchForwarding();
     this.#bindUnloadSync();
+    this.#bindAudioUnlock();
   }
 
   get isRunning() {
@@ -94,8 +105,9 @@ export class Panda3DSEmulator {
   }
 
   /**
-   * Ensures preserveDrawingBuffer: true on the hidden SDL2 WebGL2 canvas so
-   * ctx.drawImage(emuCanvas, ...) captures frames reliably across rAF boundaries.
+   * Configures fast low-overhead WebGL2 attributes on the hidden SDL2 canvas.
+   * Synchronous frame mirroring happens right after SDL_GL_SwapWindow so
+   * preserveDrawingBuffer can stay false without extra compositor copies.
    */
   #patchEmuCanvasWebGL() {
     if (this.#patchedWebGL) return;
@@ -105,7 +117,15 @@ export class Panda3DSEmulator {
     HTMLCanvasElement.prototype.getContext = (function (orig) {
       return function (type, attrs) {
         if (this.id === 'canvas' && (type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl')) {
-          attrs = { ...(attrs || {}), preserveDrawingBuffer: true };
+          attrs = {
+            ...(attrs || {}),
+            antialias: false,
+            alpha: false,
+            depth: false,
+            stencil: false,
+            preserveDrawingBuffer: false,
+            powerPreference: 'high-performance',
+          };
         }
         return orig.call(this, type, attrs);
       };
@@ -155,9 +175,14 @@ export class Panda3DSEmulator {
     if (this.#module && this.#paused && this.#activeRomPath === romPath) {
       this.#paused = false;
       this.#running = true;
+      this.#applyRuntimePerfSettings();
+      this.#module._panda_set_emu_audio?.(this.#emuAudioEnabled ? 1 : 0);
+      if (this.#emuAudioEnabled) {
+        this.unlockAudio();
+      }
+      this.#startMirrorHook();
       this.#module._emscripten_resume_main_loop?.();
       this.#module.resumeMainLoop?.();
-      this.#startMirrorLoop();
       this.#onStatus?.(`Retomando ${safeFileName}...`);
       return { ok: true };
     }
@@ -166,7 +191,7 @@ export class Panda3DSEmulator {
     if (this.#module?.FS && this.#module?.callMain) {
       this.#module._emscripten_pause_main_loop?.();
       this.#module.pauseMainLoop?.();
-      this.#stopMirrorLoop();
+      this.#stopMirrorHook();
       await this.syncSavesToIndexedDb();
       this.#bootRomInModule(this.#module, romPath, romBytes);
       return { ok: true };
@@ -180,7 +205,7 @@ export class Panda3DSEmulator {
     // Reset stale canvas/state only if a non-reusable instance remained
     if (this.#module) {
       this.#module.pauseMainLoop?.();
-      this.#stopMirrorLoop();
+      this.#stopMirrorHook();
       await this.syncSavesToIndexedDb();
       this.#module = null;
       this.#idbfsMounted = false;
@@ -188,9 +213,10 @@ export class Panda3DSEmulator {
       this.#replaceHiddenCanvas();
     }
 
-    // Use compatible WebGL2 shader path by default (?accel=1 enables experimental accelerated PICA shaders)
+    // Enable WebGL2 accelerated PICA vertex shaders by default (?accel=0 disables them)
     const params = new URLSearchParams(location.search);
-    window.p3dsForceAccel = params.get('accel') === '1' ? 1 : 0;
+    window.p3dsForceAccel = params.get('accel') === '0' ? 0 : 1;
+    this.#accelShaders = window.p3dsForceAccel === 1;
     window.__log = window.__log || [];
     window.__statsLog = window.__statsLog || [];
 
@@ -205,12 +231,12 @@ export class Panda3DSEmulator {
         return `/wasm/${file}`;
       },
       noInitialRun: true,
-      print: (msg) => this.#onLog?.(`[Panda3DS] ${msg}`),
-      printErr: (msg) => this.#onLog?.(`[Panda3DS:err] ${msg}`),
+      print: (msg) => this.#handleCoreLog(msg, false),
+      printErr: (msg) => this.#handleCoreLog(msg, true),
       onAbort: (what) => {
         this.#running = false;
         this.#paused = false;
-        this.#stopMirrorLoop();
+        this.#stopMirrorHook();
         this.#onStatus?.(`Emulador abortado: ${what}`);
         this.#onLog?.(`[Abort] ${what}`);
         this.#onAbort?.(String(what));
@@ -327,7 +353,8 @@ export class Panda3DSEmulator {
     this.#running = true;
     this.#paused = false;
     this.resetWebInput();
-    this.#startMirrorLoop();
+    this.#applyRuntimePerfSettings();
+    this.#startMirrorHook();
     this.#onStatus?.(`Executando ${romPath.split('/').pop()}...`);
 
     try {
@@ -336,52 +363,172 @@ export class Panda3DSEmulator {
       if (!String(err).includes('unwind')) {
         this.#onLog?.(`[callMain] ${err?.stack || err}`);
       }
+    } finally {
+      if (this.#emuAudioEnabled) {
+        this.unlockAudio();
+      }
+    }
+  }
+
+  #handleCoreLog(msg, isErr) {
+    const text = String(msg ?? '');
+    if (
+      isErr ||
+      !this.#running ||
+      text.includes('FATAL') ||
+      text.includes('Loaded') ||
+      text.includes('Should raise') ||
+      text.includes('WARN') ||
+      text.includes('[Warning]') ||
+      text.includes('ERROR') ||
+      text.includes('[Perf]') ||
+      text.includes('[ShaderDecompiler]') ||
+      text.includes('GLSL recompiler')
+    ) {
+      this.#onLog?.(`${isErr ? '[Panda3DS:err]' : '[Panda3DS]'} ${text}`);
+      return;
+    }
+    const now = performance.now();
+    if (now - this.#lastInfoLogAt >= LOG_THROTTLE_MS) {
+      this.#lastInfoLogAt = now;
+      this.#onLog?.(`[Panda3DS] ${text}`);
+    }
+  }
+
+  #applyRuntimePerfSettings() {
+    this.#module?._panda_set_cpu_clock_scale?.(this.#cpuClockScalePct);
+    this.#module?._panda_set_emu_audio?.(this.#emuAudioEnabled ? 1 : 0);
+    this.#module?._panda_set_accelerate_shaders?.(this.#accelShaders ? 1 : 0);
+  }
+
+  setCpuClockScale(percent) {
+    const clamped = Math.max(15, Math.min(200, Math.round(Number(percent) || 100)));
+    this.#cpuClockScalePct = clamped;
+    this.#module?._panda_set_cpu_clock_scale?.(clamped);
+  }
+
+  setEmuAudioEnabled(enabled) {
+    this.#emuAudioEnabled = Boolean(enabled);
+    this.#module?._panda_set_emu_audio?.(this.#emuAudioEnabled ? 1 : 0);
+    if (this.#emuAudioEnabled) {
+      this.unlockAudio();
+    }
+  }
+
+  unlockAudio() {
+    if (!this.#emuAudioEnabled || typeof window === 'undefined') return;
+    const ma = window.miniaudio;
+    if (!ma) return;
+    const devices = ma.devices;
+    const startedState = ma.device_state?.started;
+    let hasSuspended = false;
+    if (Array.isArray(devices)) {
+      for (let i = 0; i < devices.length; i += 1) {
+        const device = devices[i];
+        const ctx = device?.webaudio;
+        if (!ctx) continue;
+        if (startedState !== undefined && device.state !== startedState) continue;
+        if (ctx.state !== 'running') {
+          hasSuspended = true;
+          try {
+            Promise.resolve(ctx.resume())
+              .then(() => {
+                if (ctx.state === 'running') {
+                  this.#module?._ma_device__on_notification_unlocked?.(device.pDevice);
+                }
+              })
+              .catch(() => {});
+          } catch {
+            // Ignore resume errors outside user gesture
+          }
+        }
+      }
+    }
+    if (hasSuspended || !Array.isArray(devices)) {
+      try {
+        ma.unlock?.();
+      } catch {
+        // Ignore miniaudio unlock errors outside user gesture
+      }
+    }
+  }
+
+  #bindAudioUnlock() {
+    if (typeof document === 'undefined') return;
+    const onGesture = () => {
+      if (this.#running && this.#emuAudioEnabled) {
+        this.unlockAudio();
+      }
+    };
+    for (const evt of ['pointerdown', 'keydown', 'touchend', 'click']) {
+      document.addEventListener(evt, onGesture, { capture: true, passive: true });
     }
   }
 
   /**
-   * Captures the 400x480 hidden WebGL2 framebuffer and splits it:
+   * Synchronously mirrors the 400x480 WebGL2 framebuffer immediately after
+   * SDL_GL_SwapWindow(window) before the browser compositor clears it:
    * - Top half (0, 0, 400, 240) -> Top Screen (400x240)
    * - Bottom half (40, 240, 320, 240) -> Bottom Screen (320x240)
    */
-  #startMirrorLoop() {
-    this.#stopMirrorLoop();
-    const renderMirror = () => {
+  #startMirrorHook() {
+    this.#fpsFrames = 0;
+    this.#fpsWindowStart = performance.now();
+
+    window.__pandaOnFrame = () => {
       if (!this.#running) return;
-      this.#mirrorRafId = requestAnimationFrame(renderMirror);
 
       const srcW = this.#emuCanvas.width || 400;
       const srcH = this.#emuCanvas.height || 480;
       const halfH = Math.floor(srcH / 2);
 
-      this.#topCtx.imageSmoothingEnabled = false;
-      this.#topCtx.clearRect(0, 0, 400, 240);
       this.#topCtx.drawImage(this.#emuCanvas, 0, 0, srcW, halfH, 0, 0, 400, 240);
 
       const bottomSrcX = srcW >= 400 ? Math.floor((srcW - 320) / 2) : 0;
       const bottomSrcW = srcW >= 400 ? 320 : srcW;
-
-      this.#bottomCtx.imageSmoothingEnabled = false;
-      this.#bottomCtx.clearRect(0, 0, 320, 240);
       this.#bottomCtx.drawImage(this.#emuCanvas, bottomSrcX, halfH, bottomSrcW, halfH, 0, 0, 320, 240);
+
+      this.#fpsFrames += 1;
+      const now = performance.now();
+      const elapsed = now - this.#fpsWindowStart;
+      if (elapsed >= 500) {
+        const fps = Math.round((this.#fpsFrames * 1000) / elapsed);
+        this.#fpsFrames = 0;
+        this.#fpsWindowStart = now;
+        this.#onFps?.(fps);
+      }
     };
-    this.#mirrorRafId = requestAnimationFrame(renderMirror);
   }
 
-  #stopMirrorLoop() {
-    if (this.#mirrorRafId !== null) {
-      cancelAnimationFrame(this.#mirrorRafId);
-      this.#mirrorRafId = null;
+  #stopMirrorHook() {
+    if (window.__pandaOnFrame) {
+      window.__pandaOnFrame = null;
     }
+    this.#fpsFrames = 0;
+    this.#onFps?.(null);
   }
 
   stopDisplay() {
     this.#running = false;
     this.#paused = true;
     this.resetWebInput();
+    this.#module?._panda_set_emu_audio?.(0);
+    const devices = typeof window !== 'undefined' ? window.miniaudio?.devices : null;
+    if (Array.isArray(devices)) {
+      for (let i = 0; i < devices.length; i += 1) {
+        const ctx = devices[i]?.webaudio;
+        if (ctx && ctx.state === 'running') {
+          try {
+            void ctx.suspend();
+          } catch {
+            // Ignore suspend error
+          }
+        }
+      }
+    }
     this.#module?._emscripten_pause_main_loop?.();
     this.#module?.pauseMainLoop?.();
-    this.#stopMirrorLoop();
+    this.#stopMirrorHook();
     void this.syncSavesToIndexedDb();
   }
 
@@ -506,7 +653,11 @@ export class Panda3DSEmulator {
    */
   setWebButtons(mask) {
     if (!this.#running) return;
-    this.#module?._panda_set_web_buttons?.(mask >>> 0);
+    const normalized = mask >>> 0;
+    if (normalized !== 0 && this.#emuAudioEnabled) {
+      this.unlockAudio();
+    }
+    this.#module?._panda_set_web_buttons?.(normalized);
   }
 
   /**

@@ -122,6 +122,20 @@ export function createInputController({
   let rafId = null;
   let lastFrameTime = performance.now();
 
+  let prevDomMask = -1;
+  let prevDomPadX = '';
+  let prevDomPadY = '';
+  let prevDomPadActive = null;
+
+  let prevWasmRunning = false;
+  let prevWasmMask = -1;
+  let prevWasmCircleX = NaN;
+  let prevWasmCircleY = NaN;
+  let prevWasmCircleActive = null;
+  let prevWasmCX = NaN;
+  let prevWasmCY = NaN;
+  let prevWasmCActive = null;
+
   function setMouseMode(nextMode) {
     if (!MOUSE_MODES.includes(nextMode)) return;
     mouseMode = nextMode;
@@ -536,31 +550,74 @@ export function createInputController({
   // Frame Synchronization & Visual Feedback Loop
   // --------------------------------------------------------------------------
   function syncOutputs(buttonMask, circleX, circleY, circleActive, cX, cY, cActive) {
-    // 1. Update Circle Pad visual thumb via CSS custom properties (on compositor)
+    // 1. Update Circle Pad visual thumb via CSS custom properties (dirty-checked)
+    const padXStr = `${(circleX * 10).toFixed(2)}px`;
+    const padYStr = `${(circleY * 10).toFixed(2)}px`;
     if (circlePadThumb) {
-      const maxOffsetPx = 10;
-      circlePadThumb.style.setProperty('--pad-x', `${(circleX * maxOffsetPx).toFixed(2)}px`);
-      circlePadThumb.style.setProperty('--pad-y', `${(circleY * maxOffsetPx).toFixed(2)}px`);
-    }
-    if (circlePadWell) {
-      circlePadWell.classList.toggle('is-active', circleActive || Math.hypot(circleX, circleY) > 0.08);
-    }
-
-    // 2. Highlight all active shell buttons visually (Keyboard + Gamepad + Mouse + Touch)
-    for (const [maskBit, uiKey] of MASK_TO_UI_KEYS) {
-      const btn = virtualButtons.get(uiKey);
-      if (btn?.element) {
-        btn.element.classList.toggle('is-pressed', (buttonMask & maskBit) !== 0);
+      if (padXStr !== prevDomPadX) {
+        prevDomPadX = padXStr;
+        circlePadThumb.style.setProperty('--pad-x', padXStr);
+      }
+      if (padYStr !== prevDomPadY) {
+        prevDomPadY = padYStr;
+        circlePadThumb.style.setProperty('--pad-y', padYStr);
       }
     }
+    const padActive = Boolean(circleActive || Math.hypot(circleX, circleY) > 0.08);
+    if (circlePadWell && padActive !== prevDomPadActive) {
+      prevDomPadActive = padActive;
+      circlePadWell.classList.toggle('is-active', padActive);
+    }
 
-    onVisualState?.({ buttonMask, circleX, circleY, circleActive });
+    // 2. Highlight active shell buttons only when mask changed
+    const domChanged = buttonMask !== prevDomMask || padActive !== prevDomPadActive;
+    if (buttonMask !== prevDomMask) {
+      prevDomMask = buttonMask;
+      for (const [maskBit, uiKey] of MASK_TO_UI_KEYS) {
+        const btn = virtualButtons.get(uiKey);
+        if (btn?.element) {
+          btn.element.classList.toggle('is-pressed', (buttonMask & maskBit) !== 0);
+        }
+      }
+    }
+    if (domChanged) {
+      onVisualState?.({ buttonMask, circleX, circleY, circleActive });
+    }
 
-    // 3. Push merged state directly into running Panda3DS WASM core
+    // 3. Push merged state to WASM core only on transition or change
     if (emulator.isRunning) {
-      emulator.setWebButtons(buttonMask);
-      emulator.setWebCirclePad(circleX, circleY, circleActive);
-      emulator.setWebCStick(cX, cY, cActive);
+      const justStarted = !prevWasmRunning;
+      prevWasmRunning = true;
+      if (justStarted || buttonMask !== prevWasmMask) {
+        prevWasmMask = buttonMask;
+        emulator.setWebButtons(buttonMask);
+      }
+      if (
+        justStarted ||
+        circleX !== prevWasmCircleX ||
+        circleY !== prevWasmCircleY ||
+        circleActive !== prevWasmCircleActive
+      ) {
+        prevWasmCircleX = circleX;
+        prevWasmCircleY = circleY;
+        prevWasmCircleActive = circleActive;
+        emulator.setWebCirclePad(circleX, circleY, circleActive);
+      }
+      if (justStarted || cX !== prevWasmCX || cY !== prevWasmCY || cActive !== prevWasmCActive) {
+        prevWasmCX = cX;
+        prevWasmCY = cY;
+        prevWasmCActive = cActive;
+        emulator.setWebCStick(cX, cY, cActive);
+      }
+    } else if (prevWasmRunning) {
+      prevWasmRunning = false;
+      prevWasmMask = -1;
+      prevWasmCircleX = NaN;
+      prevWasmCircleY = NaN;
+      prevWasmCircleActive = null;
+      prevWasmCX = NaN;
+      prevWasmCY = NaN;
+      prevWasmCActive = null;
     }
   }
 
