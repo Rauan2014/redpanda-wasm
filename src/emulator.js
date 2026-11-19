@@ -3,9 +3,13 @@
  * - Dynamically loads /wasm/Panda3DS.js
  * - Mounts IDBFS on /user and restores IndexedDB state via FS.syncfs(true)
  * - Writes ROM bytes to /roms/<file> via FS.writeFile and runs Module.callMain
- * - Mirrors the hidden 400x480 WebGL2 framebuffer onto the 400x240 Top and 320x240 Bottom canvases
+ * - Displays the top half (400x240) of the WebGL2 framebuffer directly in Top Screen and mirrors the bottom half onto Bottom Screen (320x240)
  * - Forwards Bottom Screen pointer drags/clicks as SDL2 mouse events
  */
+
+/* global __WASM_BUILD_HASH__ */
+const WASM_BUILD_HASH = typeof __WASM_BUILD_HASH__ === 'string' ? __WASM_BUILD_HASH__ : '';
+const WASM_QUERY = WASM_BUILD_HASH ? `?v=${WASM_BUILD_HASH}` : '';
 
 const SYNC_INTERVAL_MS = 30000;
 const CIRCLE_PAD_MAX = 0x9c;
@@ -53,7 +57,6 @@ const KEYCODE_MAP = {
 
 export class Panda3DSEmulator {
   #emuCanvas;
-  #topCanvas;
   #bottomCanvas;
   #topCtx;
   #bottomCtx;
@@ -73,15 +76,15 @@ export class Panda3DSEmulator {
   #cpuClockScalePct = 100;
   #emuAudioEnabled = true;
   #accelShaders = true;
+  #mirrorBottom = true;
   #fpsFrames = 0;
   #fpsWindowStart = 0;
   #lastInfoLogAt = 0;
 
-  constructor({ emuCanvas, topCanvas, bottomCanvas, onStatus, onLog, onAbort, onFps }) {
+  constructor({ emuCanvas, topCanvas = null, bottomCanvas, onStatus, onLog, onAbort, onFps }) {
     this.#emuCanvas = emuCanvas;
-    this.#topCanvas = topCanvas;
     this.#bottomCanvas = bottomCanvas;
-    this.#topCtx = topCanvas.getContext('2d', { alpha: false });
+    this.#topCtx = topCanvas ? topCanvas.getContext('2d', { alpha: false }) : null;
     this.#bottomCtx = bottomCanvas.getContext('2d', { alpha: false });
     if (this.#topCtx) this.#topCtx.imageSmoothingEnabled = false;
     if (this.#bottomCtx) this.#bottomCtx.imageSmoothingEnabled = false;
@@ -139,14 +142,19 @@ export class Panda3DSEmulator {
     fresh.width = 400;
     fresh.height = 480;
     fresh.tabIndex = -1;
-    fresh.setAttribute('aria-hidden', 'true');
+    const ariaLabel = this.#emuCanvas.getAttribute('aria-label');
+    if (ariaLabel) {
+      fresh.setAttribute('aria-label', ariaLabel);
+    } else {
+      fresh.setAttribute('aria-hidden', 'true');
+    }
     this.#emuCanvas.replaceWith(fresh);
     this.#emuCanvas = fresh;
   }
 
   async checkWasmAvailability() {
     try {
-      const resp = await fetch('/wasm/Panda3DS.js', { method: 'HEAD', cache: 'no-store' });
+      const resp = await fetch(`/wasm/Panda3DS.js${WASM_QUERY}`, { method: 'HEAD', cache: 'no-store' });
       if (!resp.ok) {
         return { available: false, reason: `HTTP ${resp.status} ao buscar /wasm/Panda3DS.js` };
       }
@@ -216,6 +224,8 @@ export class Panda3DSEmulator {
     // Enable WebGL2 accelerated PICA vertex shaders by default (?accel=0 disables them)
     const params = new URLSearchParams(location.search);
     window.p3dsForceAccel = params.get('accel') === '0' ? 0 : 1;
+    window.p3dsStreamBufMode = params.get('bufmode') === 'ring' ? 1 : 0;
+    this.#mirrorBottom = params.get('bottom') !== '0';
     this.#accelShaders = window.p3dsForceAccel === 1;
     window.__log = window.__log || [];
     window.__statsLog = window.__statsLog || [];
@@ -226,9 +236,9 @@ export class Panda3DSEmulator {
     const moduleConfig = {
       canvas: this.#emuCanvas,
       locateFile: (file) => {
-        if (file === 'Alber.wasm' || file.endsWith('.wasm')) return '/wasm/Panda3DS.wasm';
-        if (file.endsWith('.worker.js')) return '/wasm/Panda3DS.worker.js';
-        return `/wasm/${file}`;
+        if (file === 'Alber.wasm' || file.endsWith('.wasm')) return `/wasm/Panda3DS.wasm${WASM_QUERY}`;
+        if (file.endsWith('.worker.js')) return `/wasm/Panda3DS.worker.js${WASM_QUERY}`;
+        return `/wasm/${file}${WASM_QUERY}`;
       },
       noInitialRun: true,
       print: (msg) => this.#handleCoreLog(msg, false),
@@ -250,7 +260,7 @@ export class Panda3DSEmulator {
 
     try {
       if (typeof window.Panda3DS !== 'function') {
-        await this.#loadClassicScript('/wasm/Panda3DS.js');
+        await this.#loadClassicScript(`/wasm/Panda3DS.js${WASM_QUERY}`);
       }
 
       const factory = typeof window.Panda3DS === 'function'
@@ -482,11 +492,15 @@ export class Panda3DSEmulator {
       const srcH = this.#emuCanvas.height || 480;
       const halfH = Math.floor(srcH / 2);
 
-      this.#topCtx.drawImage(this.#emuCanvas, 0, 0, srcW, halfH, 0, 0, 400, 240);
+      if (this.#topCtx) {
+        this.#topCtx.drawImage(this.#emuCanvas, 0, 0, srcW, halfH, 0, 0, 400, 240);
+      }
 
-      const bottomSrcX = srcW >= 400 ? Math.floor((srcW - 320) / 2) : 0;
-      const bottomSrcW = srcW >= 400 ? 320 : srcW;
-      this.#bottomCtx.drawImage(this.#emuCanvas, bottomSrcX, halfH, bottomSrcW, halfH, 0, 0, 320, 240);
+      if (this.#mirrorBottom && this.#bottomCtx) {
+        const bottomSrcX = srcW >= 400 ? Math.floor((srcW - 320) / 2) : 0;
+        const bottomSrcW = srcW >= 400 ? 320 : srcW;
+        this.#bottomCtx.drawImage(this.#emuCanvas, bottomSrcX, halfH, bottomSrcW, halfH, 0, 0, 320, 240);
+      }
 
       this.#fpsFrames += 1;
       const now = performance.now();

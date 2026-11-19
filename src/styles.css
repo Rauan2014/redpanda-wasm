@@ -953,14 +953,28 @@ body {
   cursor: pointer;
 }
 
-.hidden-emu-webgl {
-  position: fixed;
+.emu-webgl-top-canvas {
+  position: absolute;
   top: 0;
   left: 0;
-  width: 400px;
-  height: 480px;
+  width: 100% !important;
+  height: 200% !important;
+  z-index: 4;
+  background: #000000;
   pointer-events: none;
-  z-index: -1;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  visibility: hidden;
+  opacity: 0;
+}
+
+.n3ds-console.is-emulating .emu-webgl-top-canvas {
+  visibility: visible;
+  opacity: 1;
+}
+
+.n3ds-console.is-emulating .slot-card.is-selected {
+  animation: none;
 }
 
 /* ==========================================================================
@@ -1093,6 +1107,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 820px auto 150px;
 }
 
 .ad-slot-header {
@@ -1235,7 +1251,14 @@ body {
   gap: 16px;
   margin-bottom: 18px;
   content-visibility: auto;
-  contain-intrinsic-size: auto none auto 520px;
+  contain-intrinsic-size: auto 960px auto 1200px;
+}
+
+@supports not (content-visibility: auto) {
+  .ad-banner-slot,
+  .doc-section {
+    contain: layout style paint;
+  }
 }
 
 .doc-grid {

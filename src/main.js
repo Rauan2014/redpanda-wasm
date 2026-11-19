@@ -60,7 +60,6 @@ const motionToggleBtn = document.getElementById('motion-toggle-btn');
 const audioToggleBtn = document.getElementById('audio-toggle-btn');
 
 const cartridgeCanvas = document.getElementById('cartridge-canvas');
-const topEmuCanvas = document.getElementById('top-emu-canvas');
 const bottomEmuCanvas = document.getElementById('bottom-emu-canvas');
 const emuWebglCanvas = document.getElementById('canvas');
 const backHomeBtn = document.getElementById('back-home-btn');
@@ -140,7 +139,6 @@ const cartridge = new CartridgeBanner3D(cartridgeCanvas, {
 
 const emulator = new Panda3DSEmulator({
   emuCanvas: emuWebglCanvas,
-  topCanvas: topEmuCanvas,
   bottomCanvas: bottomEmuCanvas,
   onStatus: (msg) => setStatus(msg),
   onLog: (line) => {
@@ -365,7 +363,7 @@ async function handleRomFileSelected(file) {
 
 function enterEmulatorView() {
   cartridge.suspend();
-  topEmuCanvas.hidden = false;
+  consoleShellEl.classList.add('is-emulating');
   bottomEmuCanvas.hidden = false;
   backHomeBtn.hidden = false;
   if (emuFpsBadgeEl) {
@@ -376,7 +374,7 @@ function enterEmulatorView() {
 
 function exitEmulatorView() {
   emulator.stopDisplay();
-  topEmuCanvas.hidden = true;
+  consoleShellEl.classList.remove('is-emulating');
   bottomEmuCanvas.hidden = true;
   backHomeBtn.hidden = true;
   if (emuFpsBadgeEl) {

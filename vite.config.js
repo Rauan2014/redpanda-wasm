@@ -1,4 +1,23 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
+
+const ROOT_DIR = path.dirname(fileURLToPath(import.meta.url));
+
+function computeWasmBuildHash() {
+  const hash = crypto.createHash('sha256');
+  let hashedFiles = 0;
+  for (const relPath of ['public/wasm/Panda3DS.wasm', 'public/wasm/Panda3DS.js']) {
+    const absPath = path.join(ROOT_DIR, relPath);
+    if (fs.existsSync(absPath)) {
+      hash.update(fs.readFileSync(absPath));
+      hashedFiles += 1;
+    }
+  }
+  return hashedFiles > 0 ? hash.digest('hex').slice(0, 12) : 'dev';
+}
 
 const COOP_COEP_HEADERS = {
   'Cross-Origin-Opener-Policy': 'same-origin',
@@ -39,6 +58,9 @@ function wasmHeadersPlugin() {
 }
 
 export default defineConfig({
+  define: {
+    __WASM_BUILD_HASH__: JSON.stringify(computeWasmBuildHash()),
+  },
   plugins: [wasmHeadersPlugin()],
   server: {
     host: '127.0.0.1',

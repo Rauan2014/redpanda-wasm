@@ -2,4 +2,25 @@ node_modules/
 dist/
 .wasm-build/
 .DS_Store
+Thumbs.db
 *.log
+
+# Variáveis de ambiente locais
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Vercel CLI local
+.vercel/
+
+# ROMs e saves locais de teste
+*.3ds
+*.cci
+*.cxi
+*.cia
+*.sav
+

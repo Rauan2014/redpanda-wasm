@@ -102,13 +102,13 @@
                 <span class="pill-title" id="pill-title">Block Blast</span>
               </div>
 
-              <!-- Canvas espelhado da metade superior do emulador (400x240) -->
+              <!-- Canvas WebGL2 (400x480) do núcleo SDL2/Emscripten; metade superior (400x240) exibida diretamente -->
               <canvas
-                id="top-emu-canvas"
-                class="emu-mirror-canvas"
+                id="canvas"
+                class="emu-webgl-top-canvas"
                 width="400"
-                height="240"
-                hidden
+                height="480"
+                tabindex="-1"
                 aria-label="Saída de vídeo da Tela Superior do Nintendo 3DS"
               ></canvas>
 
@@ -484,16 +484,6 @@
       class="visually-hidden"
       tabindex="-1"
     >
-
-    <!-- Canvas WebGL2 oculto (400x480) onde o núcleo SDL2/Emscripten renderiza -->
-    <canvas
-      id="canvas"
-      class="hidden-emu-webgl"
-      width="400"
-      height="480"
-      tabindex="-1"
-      aria-hidden="true"
-    ></canvas>
 
     <!-- Modal nativo: Gerenciador de Saves (/user & IDBFS) -->
     <dialog id="save-dialog" class="n3ds-dialog" closedby="any" aria-labelledby="save-dialog-title">

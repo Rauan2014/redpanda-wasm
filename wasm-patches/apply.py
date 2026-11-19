@@ -2869,6 +2869,7 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\tdouble cpuMs = 0.0;\n"
         "\t\tdouble gpuMs = 0.0;\n"
         "\t\tdouble dispMs = 0.0;\n"
+        "\t\tdouble mirrorMs = 0.0;\n"
         "\t\tu32 frames = 0;\n"
         "\t};\n"
         "\tinline PandaPerfStats g_pandaPerf{};\n"
@@ -4115,6 +4116,42 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
     stream_buf_cpp = p3ds_dir / "third_party" / "duckstation" / "gl" / "stream_buffer.cpp"
     replace_once(
         stream_buf_cpp,
+        "#include <array>\n#include <cstdio>",
+        "#include <algorithm>\n#include <array>\n#include <cstdio>\n#include <cstring>\n#ifdef __EMSCRIPTEN__\n#include <emscripten.h>\n#endif",
+    )
+    replace_once(
+        stream_buf_cpp,
+        "\t\t\tglBufferData(target, size, nullptr, GL_STREAM_DRAW);\n\n"
+        "\t\t\tGLenum err = glGetError();\n"
+        "\t\t\tif (err != GL_NO_ERROR) {\n"
+        "\t\t\t\tglBindBuffer(target, 0);\n"
+        "\t\t\t\tglDeleteBuffers(1, &buffer_id);\n"
+        "\t\t\t\treturn {};\n"
+        "\t\t\t}\n\n"
+        "\t\t\treturn std::unique_ptr<OpenGLStreamBuffer>(new BufferDataStreamBuffer(target, buffer_id, size));",
+        "\t\t\tglBufferData(target, std::min<u32>(size, 65536u), nullptr, GL_STREAM_DRAW);\n\n"
+        "\t\t\tGLenum err = glGetError();\n"
+        "\t\t\tif (err != GL_NO_ERROR) {\n"
+        "\t\t\t\tglBindBuffer(target, 0);\n"
+        "\t\t\t\tglDeleteBuffers(1, &buffer_id);\n"
+        "\t\t\t\treturn {};\n"
+        "\t\t\t}\n\n"
+        "\t\t\treturn std::unique_ptr<OpenGLStreamBuffer>(new BufferDataStreamBuffer(target, buffer_id, size));",
+    )
+    replace_once(
+        stream_buf_cpp,
+        "\t\tBufferDataStreamBuffer(GLenum target, GLuint buffer_id, u32 size) : OpenGLStreamBuffer(target, buffer_id, size) {\n"
+        "\t\t\tm_cpu_buffer = static_cast<u8*>(Common::alignedMalloc(size, 32));\n"
+        "\t\t\tif (!m_cpu_buffer) Panic(\"Failed to allocate CPU storage for GL buffer\");\n"
+        "\t\t}",
+        "\t\tBufferDataStreamBuffer(GLenum target, GLuint buffer_id, u32 size) : OpenGLStreamBuffer(target, buffer_id, size) {\n"
+        "\t\t\tm_cpu_buffer = static_cast<u8*>(Common::alignedMalloc(size, 32));\n"
+        "\t\t\tif (!m_cpu_buffer) Panic(\"Failed to allocate CPU storage for GL buffer\");\n"
+        "\t\t\tstd::memset(m_cpu_buffer, 0, size);\n"
+        "\t\t}",
+    )
+    replace_once(
+        stream_buf_cpp,
         "\t\tu8* m_mapped_ptr;\n\t\tbool m_coherent;\n\t};\n\n}  // namespace",
         "\t\tu8* m_mapped_ptr;\n\t\tbool m_coherent;\n\t};\n\n"
         "#ifdef __EMSCRIPTEN__\n"
@@ -4170,7 +4207,10 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         stream_buf_cpp,
         "\treturn BufferDataStreamBuffer::Create(target, size);\n#endif",
         "#ifdef __EMSCRIPTEN__\n"
-        "\treturn RingSubDataStreamBuffer::Create(target, size);\n"
+        "\tif (EM_ASM_INT({ return (typeof window !== 'undefined' && window.p3dsStreamBufMode === 1) ? 1 : 0; }) != 0) {\n"
+        "\t\treturn RingSubDataStreamBuffer::Create(target, size);\n"
+        "\t}\n"
+        "\treturn BufferDataStreamBuffer::Create(target, size);\n"
         "#else\n"
         "\treturn BufferDataStreamBuffer::Create(target, size);\n"
         "#endif\n#endif",
@@ -4606,6 +4646,10 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\tif (vertCount == 0) {\n"
         "\t\t\treturn;\n"
         "\t\t}\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\t\tglBufferData(GL_ARRAY_BUFFER, GLsizeiptr(vertCount * sizeof(Vertex)), vertices.data(), GL_STREAM_DRAW);\n"
+        "\t\tglDrawArrays(static_cast<GLenum>(primitiveTopology), 0, GLsizei(vertCount));\n"
+        "#else\n"
         "\t\tconstexpr u32 vboCapVerts = vertexBufferSize * 2;\n"
         "\t\tif (vertCount > vboCapVerts) {\n"
         "\t\t\tvbo.bufferVertsSub(vertices);\n"
@@ -4622,6 +4666,7 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\t\tglDrawArrays(static_cast<GLenum>(primitiveTopology), GLint(vboRingVertexOffset), GLsizei(vertCount));\n"
         "\t\t\tvboRingVertexOffset += vertCount;\n"
         "\t\t}\n"
+        "#endif\n"
         "\t} else {\n"
         "\t\tif (performIndexedRender) {\n"
         "\t\t\t// When doing indexed rendering, hwShaderVAO already has hwIndexBuffer bound\n"
@@ -6943,6 +6988,11 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\tg_prevWebAccelShaders = webAccel;\n"
         "\t\temu.getConfig().accelerateShaders = (webAccel != 0);\n"
         "\t}\n"
+        "\tconst double mirStartMs = emscripten_get_now();\n"
+        "\tEM_ASM({\n"
+        "\t\tif (window.__pandaOnFrame) window.__pandaOnFrame();\n"
+        "\t});\n"
+        "\tHelpers::g_pandaPerf.mirrorMs += emscripten_get_now() - mirStartMs;\n"
         "\tHelpers::g_pandaPerf.frames++;\n"
         "\tstatic double perfLastMs = emscripten_get_now();\n"
         "\tconst double perfNowMs = emscripten_get_now();\n"
@@ -6952,11 +7002,12 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\tconst double fps = (static_cast<double>(Helpers::g_pandaPerf.frames) * 1000.0) / elapsedMs;\n"
         "\t\tconst double mips = static_cast<double>(Helpers::g_pandaPerf.armInstrs) / (elapsedMs * 1000.0);\n"
         "\t\tstd::printf(\n"
-        "\t\t\t\"[Perf] fps=%.1f cpu=%.2fms gpu=%.2fms disp=%.2fms mips=%.1f draws=%.1f sw=%.1f imm=%.1f texMiss=%llu shCmp=%llu acc=%d swOff=%llu decF=%llu glF=%llu repk=%llu\\n\",\n"
+        "\t\t\t\"[Perf] fps=%.1f cpu=%.2fms gpu=%.2fms disp=%.2fms mir=%.2fms mips=%.1f draws=%.1f sw=%.1f imm=%.1f texMiss=%llu shCmp=%llu acc=%d swOff=%llu decF=%llu glF=%llu repk=%llu\\n\",\n"
         "\t\t\tfps,\n"
         "\t\t\tHelpers::g_pandaPerf.cpuMs * invFrames,\n"
         "\t\t\tHelpers::g_pandaPerf.gpuMs * invFrames,\n"
         "\t\t\tHelpers::g_pandaPerf.dispMs * invFrames,\n"
+        "\t\t\tHelpers::g_pandaPerf.mirrorMs * invFrames,\n"
         "\t\t\tmips,\n"
         "\t\t\tstatic_cast<double>(Helpers::g_pandaPerf.draws) * invFrames,\n"
         "\t\t\tstatic_cast<double>(Helpers::g_pandaPerf.swDraws) * invFrames,\n"
@@ -6972,9 +7023,6 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\tHelpers::g_pandaPerf = {};\n"
         "\t\tperfLastMs = perfNowMs;\n"
         "\t}\n"
-        "\tEM_ASM({\n"
-        "\t\tif (window.__pandaOnFrame) window.__pandaOnFrame();\n"
-        "\t});\n"
         "#endif\n}",
     )
 
