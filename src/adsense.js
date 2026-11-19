@@ -10,6 +10,10 @@ export function getAdSenseConfig() {
 
   const providerPref = String(override.provider || env.VITE_AD_PROVIDER || 'auto').trim().toLowerCase();
   const aadsUnitId = String(override.aadsUnitId || env.VITE_AADS_UNIT_ID || '').trim();
+  const adsterraKey = String(override.adsterraKey || env.VITE_ADSTERRA_KEY || '').trim();
+  const adsterraHost = String(
+    override.adsterraHost || env.VITE_ADSTERRA_HOST || 'www.highperformanceformat.com',
+  ).trim();
   const adsterraBannerUrl = String(override.adsterraBannerUrl || env.VITE_ADSTERRA_BANNER_URL || '').trim();
   const client = String(override.client || env.VITE_ADSENSE_CLIENT || PLACEHOLDER_CLIENT).trim();
   const slot = String(override.slot || env.VITE_ADSENSE_SLOT || PLACEHOLDER_SLOT).trim();
@@ -19,7 +23,9 @@ export function getAdSenseConfig() {
   const githubUrl = String(override.githubUrl || env.VITE_GITHUB_SPONSORS_URL || DEFAULT_GITHUB_URL).trim();
 
   const hasAads = /^\d{4,12}$/.test(aadsUnitId);
-  const hasAdsterra = /^https?:\/\//i.test(adsterraBannerUrl);
+  const hasAdsterraKey = /^[a-f0-9]{24,40}$/i.test(adsterraKey);
+  const hasAdsterraUrl = /^https?:\/\//i.test(adsterraBannerUrl);
+  const hasAdsterra = hasAdsterraKey || hasAdsterraUrl;
   const hasAdSense = /^ca-pub-\d{10,20}$/.test(client) && /^\d{6,20}$/.test(slot) && slot !== PLACEHOLDER_SLOT;
 
   let activeProvider = 'support';
@@ -35,6 +41,8 @@ export function getAdSenseConfig() {
   return {
     activeProvider,
     aadsUnitId,
+    adsterraKey,
+    adsterraHost,
     adsterraBannerUrl,
     client,
     slot,
@@ -143,17 +151,24 @@ function renderCustomPermissiveBanner({ frameEl, insElement, statusElement, cfg 
   if (!frameEl) return;
 
   const iframe = document.createElement('iframe');
-  iframe.src = cfg.adsterraBannerUrl;
   iframe.title = 'Publicidade Display Nativo';
   iframe.className = 'permissive-ad-iframe';
   iframe.setAttribute('credentialless', '');
   iframe.loading = 'lazy';
-  iframe.sandbox = 'allow-scripts allow-popups allow-popups-to-escape-sandbox';
+  iframe.sandbox = 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox';
   iframe.referrerPolicy = 'no-referrer-when-downgrade';
+
+  if (cfg.adsterraKey) {
+    const safeKey = cfg.adsterraKey.replace(/[^a-f0-9]/gi, '');
+    const safeHost = cfg.adsterraHost.replace(/[^a-z0-9.-]/gi, '');
+    iframe.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;background:transparent;overflow:hidden;}</style></head><body><script>atOptions={'key':'${safeKey}','format':'iframe','height':90,'width':728,'params':{}};</script><script src="https://${safeHost}/${safeKey}/invoke.js"></script></body></html>`;
+  } else {
+    iframe.src = cfg.adsterraBannerUrl;
+  }
 
   frameEl.prepend(iframe);
   if (statusElement) {
-    statusElement.textContent = 'Banner Display Nativo ativo (Adsterra / Monetag • Pop-unders desativados).';
+    statusElement.textContent = 'Banner Display ativo (Adsterra / Monetag • Isolado sem Pop-unders).';
   }
 }
 
