@@ -2869,6 +2869,14 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\tu64 gsDraws = 0;\n"
         "\t\tu64 gsTris = 0;\n"
         "\t\tu64 ptexDraws = 0;\n"
+        "\t\tu64 noBlendDraws = 0;\n"
+        "\t\tu64 stencilDraws = 0;\n"
+        "\t\tu64 cbTexHits = 0;\n"
+        "\t\tu64 texCopyCalls = 0;\n"
+        "\t\tu64 texCopySwFallbacks = 0;\n"
+        "\t\tu32 tex0TypeMask = 0;\n"
+        "\t\tu32 fogModeMask = 0;\n"
+        "\t\tu32 gspQueueMax = 0;\n"
         "\t\tdouble cpuMs = 0.0;\n"
         "\t\tdouble gpuMs = 0.0;\n"
         "\t\tdouble dispMs = 0.0;\n"
@@ -3276,83 +3284,80 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\treturn v;\n"
         "}\n\n"
         "void GPU::loadVertexAttributes(u32 vertexIndex, u32 vertexBase, u64 vertexCfg) {\n"
-        "\tu32 attrCount = 0;\n"
-        "\tu32 buffer = 0;\n\n"
-        "\twhile (attrCount < totalAttribCount && attrCount < 16) {\n"
-        "\t\tif (fixedAttribMask & (1u << attrCount)) {\n"
-        "\t\t\tvec4f& fixedAttr = shaderUnit.vs.fixedAttributes[attrCount];\n"
-        "\t\t\tvec4f& inputAttr = currentAttributes[attrCount];\n"
-        "\t\t\tstd::memcpy(&inputAttr, &fixedAttr, sizeof(vec4f));\n"
-        "\t\t\tattrCount++;\n"
-        "\t\t} else {\n"
-        "\t\t\tif (buffer >= maxAttribCount) [[unlikely]] {\n"
-        "\t\t\t\tbreak;\n"
+        "\tstatic constexpr std::array<u32, 4> elemAligns = {1, 1, 2, 4};\n\n"
+        "\tfor (u32 loaderIdx = 0; loaderIdx < maxAttribCount; ++loaderIdx) {\n"
+        "\t\tauto& attr = attributeInfo[loaderIdx];\n"
+        "\t\tif (attr.componentCount == 0 || attr.size == 0) {\n"
+        "\t\t\tcontinue;\n"
+        "\t\t}\n"
+        "\t\tconst u64 attrCfg = attr.getConfigFull();\n"
+        "\t\tconst u32 compCount = std::min<u32>(attr.componentCount, 12u);\n"
+        "\t\tconst u32 vertexBaseAddr = vertexBase + attr.offset + (vertexIndex * attr.size);\n"
+        "\t\tu32 attrOffset = 0;\n\n"
+        "\t\tfor (u32 j = 0; j < compCount; ++j) {\n"
+        "\t\t\tconst uint index = (attrCfg >> (j * 4)) & 0xf;\n"
+        "\t\t\tif (index >= 12) [[unlikely]] {\n"
+        "\t\t\t\tattrOffset = (attrOffset + 3u) & ~3u;\n"
+        "\t\t\t\tattrOffset += (index - 11u) << 2;\n"
+        "\t\t\t\tcontinue;\n"
         "\t\t\t}\n"
-        "\t\t\tauto& attr = attributeInfo[buffer];\n"
-        "\t\t\tu64 attrCfg = attr.getConfigFull();\n"
-        "\t\t\tu32 attrAddress = vertexBase + attr.offset + (vertexIndex * attr.size);\n\n"
-        "\t\t\tfor (u32 j = 0; j < attr.componentCount && attrCount < 16; j++) {\n"
-        "\t\t\t\tuint index = (attrCfg >> (j * 4)) & 0xf;\n"
-        "\t\t\t\tif (index >= 12) [[unlikely]] {\n"
-        "\t\t\t\t\tattrAddress = (attrAddress + 3) & -4;\n"
-        "\t\t\t\t\tattrAddress += (index - 11) << 2;\n"
-        "\t\t\t\t\tcontinue;\n"
+        "\t\t\tconst u32 attribInfo = (vertexCfg >> (index * 4)) & 0xf;\n"
+        "\t\t\tconst u32 attribType = attribInfo & 0x3;\n"
+        "\t\t\tconst u32 size = (attribInfo >> 2) + 1;\n"
+        "\t\t\tconst u32 align = elemAligns[attribType];\n"
+        "\t\t\tattrOffset = (attrOffset + align - 1u) & ~(align - 1u);\n"
+        "\t\t\tconst u32 attrAddress = vertexBaseAddr + attrOffset;\n\n"
+        "\t\t\tvec4f& attribute = currentAttributes[index];\n"
+        "\t\t\tuint component = 0;\n\n"
+        "\t\t\tswitch (attribType) {\n"
+        "\t\t\t\tcase 0: {\n"
+        "\t\t\t\t\ts8* ptr = getPointerPhys<s8>(attrAddress);\n"
+        "\t\t\t\t\tif (ptr != nullptr) {\n"
+        "\t\t\t\t\t\tfor (component = 0; component < size; component++) {\n"
+        "\t\t\t\t\t\t\tattribute[component] = f24::fromFloat32(static_cast<float>(*ptr++));\n"
+        "\t\t\t\t\t\t}\n"
+        "\t\t\t\t\t}\n"
+        "\t\t\t\t\tbreak;\n"
         "\t\t\t\t}\n"
-        "\t\t\t\tu32 attribInfo = (vertexCfg >> (index * 4)) & 0xf;\n"
-        "\t\t\t\tu32 attribType = attribInfo & 0x3;\n"
-        "\t\t\t\tu32 size = (attribInfo >> 2) + 1;\n"
-        "\t\t\t\tvec4f& attribute = currentAttributes[attrCount];\n"
-        "\t\t\t\tuint component = 0;\n\n"
-        "\t\t\t\tswitch (attribType) {\n"
-        "\t\t\t\t\tcase 0: {\n"
-        "\t\t\t\t\t\ts8* ptr = getPointerPhys<s8>(attrAddress);\n"
-        "\t\t\t\t\t\tif (ptr != nullptr) {\n"
-        "\t\t\t\t\t\t\tfor (component = 0; component < size; component++) {\n"
-        "\t\t\t\t\t\t\t\tattribute[component] = f24::fromFloat32(static_cast<float>(*ptr++));\n"
-        "\t\t\t\t\t\t\t}\n"
+        "\t\t\t\tcase 1: {\n"
+        "\t\t\t\t\tu8* ptr = getPointerPhys<u8>(attrAddress);\n"
+        "\t\t\t\t\tif (ptr != nullptr) {\n"
+        "\t\t\t\t\t\tfor (component = 0; component < size; component++) {\n"
+        "\t\t\t\t\t\t\tattribute[component] = f24::fromFloat32(static_cast<float>(*ptr++));\n"
         "\t\t\t\t\t\t}\n"
-        "\t\t\t\t\t\tattrAddress += size * sizeof(s8);\n"
-        "\t\t\t\t\t\tbreak;\n"
         "\t\t\t\t\t}\n"
-        "\t\t\t\t\tcase 1: {\n"
-        "\t\t\t\t\t\tu8* ptr = getPointerPhys<u8>(attrAddress);\n"
-        "\t\t\t\t\t\tif (ptr != nullptr) {\n"
-        "\t\t\t\t\t\t\tfor (component = 0; component < size; component++) {\n"
-        "\t\t\t\t\t\t\t\tattribute[component] = f24::fromFloat32(static_cast<float>(*ptr++));\n"
-        "\t\t\t\t\t\t\t}\n"
-        "\t\t\t\t\t\t}\n"
-        "\t\t\t\t\t\tattrAddress += size * sizeof(u8);\n"
-        "\t\t\t\t\t\tbreak;\n"
-        "\t\t\t\t\t}\n"
-        "\t\t\t\t\tcase 2: {\n"
-        "\t\t\t\t\t\ts16* ptr = getPointerPhys<s16>(attrAddress);\n"
-        "\t\t\t\t\t\tif (ptr != nullptr) {\n"
-        "\t\t\t\t\t\t\tfor (component = 0; component < size; component++) {\n"
-        "\t\t\t\t\t\t\t\tattribute[component] = f24::fromFloat32(static_cast<float>(*ptr++));\n"
-        "\t\t\t\t\t\t\t}\n"
-        "\t\t\t\t\t\t}\n"
-        "\t\t\t\t\t\tattrAddress += size * sizeof(s16);\n"
-        "\t\t\t\t\t\tbreak;\n"
-        "\t\t\t\t\t}\n"
-        "\t\t\t\t\tcase 3: {\n"
-        "\t\t\t\t\t\tfloat* ptr = getPointerPhys<float>(attrAddress);\n"
-        "\t\t\t\t\t\tif (ptr != nullptr) {\n"
-        "\t\t\t\t\t\t\tfor (component = 0; component < size; component++) {\n"
-        "\t\t\t\t\t\t\t\tattribute[component] = f24::fromFloat32(*ptr++);\n"
-        "\t\t\t\t\t\t\t}\n"
-        "\t\t\t\t\t\t}\n"
-        "\t\t\t\t\t\tattrAddress += size * sizeof(float);\n"
-        "\t\t\t\t\t\tbreak;\n"
-        "\t\t\t\t\t}\n"
-        "\t\t\t\t\tdefault: Helpers::panic(\"[PICA] Unimplemented attribute type %d\", attribType); break;\n"
+        "\t\t\t\t\tbreak;\n"
         "\t\t\t\t}\n"
-        "\t\t\t\twhile (component < 4) {\n"
-        "\t\t\t\t\tattribute[component] = (component == 3) ? f24::fromFloat32(1.0f) : f24::fromFloat32(0.0f);\n"
-        "\t\t\t\t\tcomponent++;\n"
+        "\t\t\t\tcase 2: {\n"
+        "\t\t\t\t\ts16* ptr = getPointerPhys<s16>(attrAddress);\n"
+        "\t\t\t\t\tif (ptr != nullptr) {\n"
+        "\t\t\t\t\t\tfor (component = 0; component < size; component++) {\n"
+        "\t\t\t\t\t\t\tattribute[component] = f24::fromFloat32(static_cast<float>(*ptr++));\n"
+        "\t\t\t\t\t\t}\n"
+        "\t\t\t\t\t}\n"
+        "\t\t\t\t\tbreak;\n"
         "\t\t\t\t}\n"
-        "\t\t\t\tattrCount++;\n"
+        "\t\t\t\tcase 3: {\n"
+        "\t\t\t\t\tfloat* ptr = getPointerPhys<float>(attrAddress);\n"
+        "\t\t\t\t\tif (ptr != nullptr) {\n"
+        "\t\t\t\t\t\tfor (component = 0; component < size; component++) {\n"
+        "\t\t\t\t\t\t\tattribute[component] = f24::fromFloat32(*ptr++);\n"
+        "\t\t\t\t\t\t}\n"
+        "\t\t\t\t\t}\n"
+        "\t\t\t\t\tbreak;\n"
+        "\t\t\t\t}\n"
+        "\t\t\t\tdefault: Helpers::panic(\"[PICA] Unimplemented attribute type %d\", attribType); break;\n"
         "\t\t\t}\n"
-        "\t\t\tbuffer++;\n"
+        "\t\t\twhile (component < 4) {\n"
+        "\t\t\t\tattribute[component] = (component == 3) ? f24::fromFloat32(1.0f) : f24::fromFloat32(0.0f);\n"
+        "\t\t\t\tcomponent++;\n"
+        "\t\t\t}\n"
+        "\t\t\tattrOffset += size * align;\n"
+        "\t\t}\n"
+        "\t}\n\n"
+        "\tfor (u32 i = 0; i < totalAttribCount && i < 16; ++i) {\n"
+        "\t\tif (i >= 12 || (fixedAttribMask & (1u << i)) != 0) {\n"
+        "\t\t\tcurrentAttributes[i] = shaderUnit.vs.fixedAttributes[i];\n"
         "\t\t}\n"
         "\t}\n"
         "}\n\n"
@@ -3696,6 +3701,88 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\tstd::fill(std::begin(v.raw), std::end(v.raw), f24::fromFloat32(1.0f));\n"
         "\tconst int totalAttrCount = (regs[PICA::InternalRegs::VertexShaderAttrNum] & 0xf) + 1;",
     )
+    replace_once(
+        gpu_cpp,
+        "\t\tint attrCount = 0;\n"
+        "\t\tint buffer = 0;  // Vertex buffer index for non-fixed attributes\n\n"
+        "\t\twhile (attrCount < totalAttribCount) {\n"
+        "\t\t\t// Check if attribute is fixed or not\n"
+        "\t\t\tif (fixedAttribMask & (1 << attrCount)) {                         // Fixed attribute\n"
+        "\t\t\t\tvec4f& fixedAttr = shaderUnit.vs.fixedAttributes[attrCount];  // TODO: Is this how it works?\n"
+        "\t\t\t\tvec4f& inputAttr = currentAttributes[attrCount];\n"
+        "\t\t\t\tstd::memcpy(&inputAttr, &fixedAttr, sizeof(vec4f));  // Copy fixed attr to input attr\n"
+        "\t\t\t\tattrCount++;\n"
+        "\t\t\t} else {                                 // Non-fixed attribute\n"
+        "\t\t\t\tauto& attr = attributeInfo[buffer];  // Get information for this attribute\n"
+        "\t\t\t\tu64 attrCfg = attr.getConfigFull();  // Get config1 | (config2 << 32)\n"
+        "\t\t\t\tu32 attrAddress = vertexBase + attr.offset + (vertexIndex * attr.size);\n\n"
+        "\t\t\t\tfor (int j = 0; j < attr.componentCount; j++) {\n"
+        "\t\t\t\t\tuint index = (attrCfg >> (j * 4)) & 0xf;  // Get index of attribute in vertexCfg\n\n"
+        "\t\t\t\t\t// Vertex attributes used as padding\n"
+        "\t\t\t\t\t// 12, 13, 14 and 15 are equivalent to 4, 8, 12 and 16 bytes of padding respectively\n"
+        "\t\t\t\t\tif (index >= 12) [[unlikely]] {\n"
+        "\t\t\t\t\t\t// Align attribute address up to a 4 byte boundary\n"
+        "\t\t\t\t\t\tattrAddress = (attrAddress + 3) & -4;\n"
+        "\t\t\t\t\t\tattrAddress += (index - 11) << 2;\n"
+        "\t\t\t\t\t\tcontinue;\n"
+        "\t\t\t\t\t}\n\n"
+        "\t\t\t\t\tu32 attribInfo = (vertexCfg >> (index * 4)) & 0xf;\n"
+        "\t\t\t\t\tu32 attribType = attribInfo & 0x3;  //  Type of attribute(sbyte/ubyte/short/float)\n"
+        "\t\t\t\t\tu32 size = (attribInfo >> 2) + 1;   // Total number of components\n\n"
+        "\t\t\t\t\t// printf(\"vertex_attribute_strides[%d] = %d\\n\", attrCount, attr.size);\n"
+        "\t\t\t\t\tvec4f& attribute = currentAttributes[attrCount];\n"
+        "\t\t\t\t\tuint component;  // Current component\n\n"
+        "\t\t\t\t\tswitch (attribType) {\n"
+        "\t\t\t\t\t\tcase 0: {  // Signed byte\n"
+        "\t\t\t\t\t\t\ts8* ptr = getPointerPhys<s8>(attrAddress);\n"
+        "\t\t\t\t\t\t\tfor (component = 0; component < size; component++) {\n"
+        "\t\t\t\t\t\t\t\tfloat val = static_cast<float>(*ptr++);\n"
+        "\t\t\t\t\t\t\t\tattribute[component] = f24::fromFloat32(val);\n"
+        "\t\t\t\t\t\t\t}\n"
+        "\t\t\t\t\t\t\tattrAddress += size * sizeof(s8);\n"
+        "\t\t\t\t\t\t\tbreak;\n"
+        "\t\t\t\t\t\t}\n\n"
+        "\t\t\t\t\t\tcase 1: {  // Unsigned byte\n"
+        "\t\t\t\t\t\t\tu8* ptr = getPointerPhys<u8>(attrAddress);\n"
+        "\t\t\t\t\t\t\tfor (component = 0; component < size; component++) {\n"
+        "\t\t\t\t\t\t\t\tfloat val = static_cast<float>(*ptr++);\n"
+        "\t\t\t\t\t\t\t\tattribute[component] = f24::fromFloat32(val);\n"
+        "\t\t\t\t\t\t\t}\n"
+        "\t\t\t\t\t\t\tattrAddress += size * sizeof(u8);\n"
+        "\t\t\t\t\t\t\tbreak;\n"
+        "\t\t\t\t\t\t}\n\n"
+        "\t\t\t\t\t\tcase 2: {  // Short\n"
+        "\t\t\t\t\t\t\ts16* ptr = getPointerPhys<s16>(attrAddress);\n"
+        "\t\t\t\t\t\t\tfor (component = 0; component < size; component++) {\n"
+        "\t\t\t\t\t\t\t\tfloat val = static_cast<float>(*ptr++);\n"
+        "\t\t\t\t\t\t\t\tattribute[component] = f24::fromFloat32(val);\n"
+        "\t\t\t\t\t\t\t}\n"
+        "\t\t\t\t\t\t\tattrAddress += size * sizeof(s16);\n"
+        "\t\t\t\t\t\t\tbreak;\n"
+        "\t\t\t\t\t\t}\n\n"
+        "\t\t\t\t\t\tcase 3: {  // Float\n"
+        "\t\t\t\t\t\t\tfloat* ptr = getPointerPhys<float>(attrAddress);\n"
+        "\t\t\t\t\t\t\tfor (component = 0; component < size; component++) {\n"
+        "\t\t\t\t\t\t\t\tfloat val = *ptr++;\n"
+        "\t\t\t\t\t\t\t\tattribute[component] = f24::fromFloat32(val);\n"
+        "\t\t\t\t\t\t\t}\n"
+        "\t\t\t\t\t\t\tattrAddress += size * sizeof(float);\n"
+        "\t\t\t\t\t\t\tbreak;\n"
+        "\t\t\t\t\t\t}\n\n"
+        "\t\t\t\t\t\tdefault: Helpers::panic(\"[PICA] Unimplemented attribute type %d\", attribType);\n"
+        "\t\t\t\t\t}\n\n"
+        "\t\t\t\t\t// Fill the remaining attribute lanes with default parameters (1.0 for alpha/w, 0.0) for everything else\n"
+        "\t\t\t\t\twhile (component < 4) {\n"
+        "\t\t\t\t\t\tattribute[component] = (component == 3) ? f24::fromFloat32(1.0) : f24::fromFloat32(0.0);\n"
+        "\t\t\t\t\t\tcomponent++;\n"
+        "\t\t\t\t\t}\n\n"
+        "\t\t\t\t\tattrCount++;\n"
+        "\t\t\t\t}\n"
+        "\t\t\t\tbuffer++;\n"
+        "\t\t\t}\n"
+        "\t\t}",
+        "\t\tloadVertexAttributes(vertexIndex, vertexBase, vertexCfg);",
+    )
 
     draw_accel_hpp = p3ds_dir / "include" / "PICA" / "draw_acceleration.hpp"
     replace_once(
@@ -3914,9 +4001,9 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\t\tconst u32 size = (attribInfo >> 2) + 1;   // Total number of components\n"
         "\t\t\tconst u32 attrBytes = size << sizeShiftPerComponent[attribType];\n"
         "\t\t\tconst u32 inputReg = (inputAttrCfg >> (attributeIndex * 4)) & 0xf;\n"
-        "\t\t\tconst u32 elemAlign = 1u << sizeShiftPerComponent[attribType];\n\n"
-        "\t\t\tif ((attributeOffset & (elemAlign - 1u)) != 0 || (loaderData.size & (elemAlign - 1u)) != 0 ||\n"
-        "\t\t\t    (attributeOffset + attrBytes > loaderData.size)) {\n"
+        "\t\t\tconst u32 elemAlign = 1u << sizeShiftPerComponent[attribType];\n"
+        "\t\t\tattributeOffset = (attributeOffset + elemAlign - 1u) & ~(elemAlign - 1u);\n\n"
+        "\t\t\tif ((loaderData.size & (elemAlign - 1u)) != 0 || (attributeOffset + attrBytes > loaderData.size)) {\n"
         "\t\t\t\tneedsRepack = true;\n"
         "\t\t\t}\n\n"
         "\t\t\tscannedInputReg[scannedCount] = inputReg;\n"
@@ -4020,6 +4107,65 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
     )
 
     gsp_gpu_cpp = p3ds_dir / "src" / "core" / "services" / "gsp_gpu.cpp"
+    replace_once(
+        gsp_gpu_cpp,
+        "#include \"services/gsp_gpu.hpp\"\n",
+        "#include \"services/gsp_gpu.hpp\"\n\n#include <cstring>\n",
+    )
+    replace_once(
+        gsp_gpu_cpp,
+        "\tconstexpr int threadCount = 1;  // TODO: More than 1 thread can have GSP commands at a time\n"
+        "\tfor (int t = 0; t < threadCount; t++) {\n"
+        "\t\tu8* cmdBuffer = &sharedMem[0x800 + t * 0x200];\n"
+        "\t\tu8& commandsLeft = cmdBuffer[1];\n"
+        "\t\t// Commands start at byte 0x20 of the command buffer, each being 0x20 bytes long\n"
+        "\t\tu32* cmd = reinterpret_cast<u32*>(&cmdBuffer[0x20]);\n\n"
+        "\t\tlog(\"Processing %d GPU commands\\n\", commandsLeft);\n\n"
+        "\t\twhile (commandsLeft != 0) {\n"
+        "\t\t\tconst u32 cmdID = cmd[0] & 0xff;\n"
+        "\t\t\tswitch (cmdID) {\n"
+        "\t\t\t\tcase GXCommands::ProcessCommandList: processCommandList(cmd); break;\n"
+        "\t\t\t\tcase GXCommands::MemoryFill: memoryFill(cmd); break;\n"
+        "\t\t\t\tcase GXCommands::TriggerDisplayTransfer: triggerDisplayTransfer(cmd); break;\n"
+        "\t\t\t\tcase GXCommands::TriggerDMARequest: triggerDMARequest(cmd); break;\n"
+        "\t\t\t\tcase GXCommands::TriggerTextureCopy: triggerTextureCopy(cmd); break;\n"
+        "\t\t\t\tcase GXCommands::FlushCacheRegions: flushCacheRegions(cmd); break;\n"
+        "\t\t\t\tdefault: Helpers::panic(\"GSP::GPU::ProcessCommands: Unknown cmd ID %d\", cmdID);\n"
+        "\t\t\t}\n\n"
+        "\t\t\tcommandsLeft--;\n"
+        "\t\t}\n"
+        "\t}",
+        "\tconstexpr int threadCount = 1;  // TODO: More than 1 thread can have GSP commands at a time\n"
+        "\tfor (int t = 0; t < threadCount; t++) {\n"
+        "\t\tu8* cmdBuffer = &sharedMem[0x800 + t * 0x200];\n"
+        "\t\tu8& cmdIndex = cmdBuffer[0];\n"
+        "\t\tu8& commandsLeft = cmdBuffer[1];\n\n"
+        "\t\tlog(\"Processing %d GPU commands\\n\", commandsLeft);\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\t\tif (static_cast<u32>(commandsLeft) > Helpers::g_pandaPerf.gspQueueMax) {\n"
+        "\t\t\tHelpers::g_pandaPerf.gspQueueMax = static_cast<u32>(commandsLeft);\n"
+        "\t\t}\n"
+        "#endif\n\n"
+        "\t\twhile (commandsLeft != 0) {\n"
+        "\t\t\tconst u32 slot = cmdIndex % 15u;\n"
+        "\t\t\tu32 cmdCopy[8];\n"
+        "\t\t\tstd::memcpy(cmdCopy, &cmdBuffer[0x20 + slot * 0x20], sizeof(cmdCopy));\n"
+        "\t\t\tcmdIndex = static_cast<u8>((slot + 1u) % 15u);\n"
+        "\t\t\tcommandsLeft--;\n\n"
+        "\t\t\tu32* cmd = cmdCopy;\n"
+        "\t\t\tconst u32 cmdID = cmd[0] & 0xff;\n"
+        "\t\t\tswitch (cmdID) {\n"
+        "\t\t\t\tcase GXCommands::ProcessCommandList: processCommandList(cmd); break;\n"
+        "\t\t\t\tcase GXCommands::MemoryFill: memoryFill(cmd); break;\n"
+        "\t\t\t\tcase GXCommands::TriggerDisplayTransfer: triggerDisplayTransfer(cmd); break;\n"
+        "\t\t\t\tcase GXCommands::TriggerDMARequest: triggerDMARequest(cmd); break;\n"
+        "\t\t\t\tcase GXCommands::TriggerTextureCopy: triggerTextureCopy(cmd); break;\n"
+        "\t\t\t\tcase GXCommands::FlushCacheRegions: flushCacheRegions(cmd); break;\n"
+        "\t\t\t\tdefault: Helpers::panic(\"GSP::GPU::ProcessCommands: Unknown cmd ID %d\", cmdID);\n"
+        "\t\t\t}\n"
+        "\t\t}\n"
+        "\t}",
+    )
     replace_once(
         gsp_gpu_cpp,
         "void GPUService::flushDataCache(u32 messagePointer) {\n"
@@ -4760,6 +4906,7 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\tconst u32 diff = newValue ^ currentValue;\n"
         "\t\tif ((index == DepthmapEnable && (diff & 1u)) ||\n"
         "\t\t    (index == TexUnitCfg && (diff & (1u << 13))) ||\n"
+        "\t\t    (index == (Tex0BorderColor + 2) && (diff & (7u << 28))) ||\n"
         "\t\t    (index == LightingEnable && (diff & 1u)) ||\n"
         "\t\t    (index == TexEnvUpdateBuffer && (diff & 0x1FF07u)) ||\n"
         "\t\t    (index == ColourOperation && (diff & (1u << 8))) ||\n"
@@ -5133,6 +5280,20 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
     )
 
     frag_config_hpp = p3ds_dir / "include" / "PICA" / "pica_frag_config.hpp"
+    replace_once(
+        frag_config_hpp,
+        "\t\t\tBitField<3, 1, u32> depthMapEnable;\n"
+        "\t\t\tBitField<4, 4, LogicOpMode> logicOpMode;",
+        "\t\t\tBitField<3, 1, u32> depthMapEnable;\n"
+        "\t\t\tBitField<4, 4, LogicOpMode> logicOpMode;\n"
+        "\t\t\tBitField<8, 3, u32> tex0Type;",
+    )
+    replace_once(
+        frag_config_hpp,
+        "\t\t\toutConfig.depthMapEnable = regs[InternalRegs::DepthmapEnable] & 1;",
+        "\t\t\toutConfig.depthMapEnable = regs[InternalRegs::DepthmapEnable] & 1;\n"
+        "\t\t\toutConfig.tex0Type = Helpers::getBits<28, 3>(regs[InternalRegs::Tex0BorderColor + 2]);",
+    )
     replace_once(
         frag_config_hpp,
         "\t\t\ttexConfig.texUnitConfig = regs[InternalRegs::TexUnitCfg];\n"
@@ -5811,6 +5972,9 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t// Assume the destination surface has the same format. Unless the surfaces have the same block width,\n"
         "\t// texture copy does not make sense.\n"
         "\tauto destFramebuffer = getColourBuffer(outputAddr, srcFramebuffer->format, copyWidth, copyHeight);",
+        "#ifdef __EMSCRIPTEN__\n"
+        "\t\tHelpers::g_pandaPerf.texCopySwFallbacks++;\n"
+        "#endif\n"
         "\t\tdoSoftwareTextureCopy(inputAddr, outputAddr, copySize, inputWidth, inputGap, outputWidth, outputGap);\n"
         "\t\tconst u32 outSpan = (outputGap != 0 && outputWidth != 0)\n"
         "\t\t                        ? (((copySize + outputWidth - 1u) / outputWidth) * (outputWidth + outputGap))\n"
@@ -5826,6 +5990,139 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t// Assume the destination surface has the same format. Unless the surfaces have the same block width,\n"
         "\t// texture copy does not make sense.\n"
         "\tauto destFramebuffer = getColourBuffer(outputAddr, srcFramebuffer->format, copyWidth, copyHeight);",
+    )
+    replace_once(
+        renderer_gl,
+        "\tif (!blendingEnabled) {  // Logic ops are enabled\n"
+        "\t\tconst u32 logicOp = getBits<0, 4>(regs[PICA::InternalRegs::LogicOp]);\n"
+        "\t\tgl.setLogicOp(logicOps[logicOp]);\n\n"
+        "\t\t// If logic ops are enabled we don't need to disable blending because they override it\n"
+        "\t\tgl.enableLogicOp();\n"
+        "\t} else {",
+        "\tif (!blendingEnabled) {  // Logic ops are enabled\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\t\tHelpers::g_pandaPerf.noBlendDraws++;\n"
+        "#endif\n"
+        "\t\tconst u32 logicOp = getBits<0, 4>(regs[PICA::InternalRegs::LogicOp]);\n"
+        "\t\tif (driverInfo.usingGLES) {\n"
+        "\t\t\tif (logicOp == static_cast<u32>(PICA::LogicOpMode::Clear)) {\n"
+        "\t\t\t\tgl.enableBlend();\n"
+        "\t\t\t\tgl.setBlendEquation(GL_FUNC_ADD, GL_FUNC_ADD);\n"
+        "\t\t\t\tgl.setBlendFunc(GL_ZERO, GL_ZERO, GL_ZERO, GL_ZERO);\n"
+        "\t\t\t} else {\n"
+        "\t\t\t\tgl.disableBlend();\n"
+        "\t\t\t}\n"
+        "\t\t} else {\n"
+        "\t\t\tgl.disableBlend();\n"
+        "\t\t\tgl.setLogicOp(logicOps[logicOp]);\n"
+        "\t\t\tgl.enableLogicOp();\n"
+        "\t\t}\n"
+        "\t} else {",
+    )
+    replace_once(
+        renderer_gl,
+        "\tconst s32 reference = s8(getBits<16, 8>(stencilConfig));  // Signed reference value",
+        "\tconst s32 reference = static_cast<s32>(getBits<16, 8>(stencilConfig));\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\tHelpers::g_pandaPerf.stencilDraws++;\n"
+        "#endif",
+    )
+    replace_once(
+        renderer_gl,
+        "\tgl.setColourMask(colourMask & 1, colourMask & 2, colourMask & 4, colourMask & 8);",
+        "\tconst bool logicOpNoOp = driverInfo.usingGLES &&\n"
+        "\t                         ((regs[PICA::InternalRegs::ColourOperation] & (1 << 8)) == 0) &&\n"
+        "\t                         (getBits<0, 4>(regs[PICA::InternalRegs::LogicOp]) == static_cast<u32>(PICA::LogicOpMode::Nop));\n"
+        "\tif (logicOpNoOp) {\n"
+        "\t\tgl.setColourMask(false, false, false, false);\n"
+        "\t} else {\n"
+        "\t\tgl.setColourMask(colourMask & 1, colourMask & 2, colourMask & 4, colourMask & 8);\n"
+        "\t}\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\tHelpers::g_pandaPerf.tex0TypeMask |= (1u << getBits<28, 3>(regs[PICA::InternalRegs::Tex0BorderColor + 2]));\n"
+        "\tHelpers::g_pandaPerf.fogModeMask |= (1u << getBits<0, 3>(regs[PICA::InternalRegs::TexEnvUpdateBuffer]));\n"
+        "#endif",
+    )
+    replace_once(
+        renderer_gl,
+        "OpenGL::Texture RendererGL::getTexture(Texture& tex) {\n"
+        "\t// Similar logic as the getColourFBO/bindDepthBuffer functions\n"
+        "\tauto buffer = textureCache.find(tex);",
+        "OpenGL::Texture RendererGL::getTexture(Texture& tex) {\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\tif (colourBufferCache.findFromAddress(tex.location).has_value()) {\n"
+        "\t\tHelpers::g_pandaPerf.cbTexHits++;\n"
+        "\t}\n"
+        "#endif\n"
+        "\t// Similar logic as the getColourFBO/bindDepthBuffer functions\n"
+        "\tauto buffer = textureCache.find(tex);",
+    )
+    replace_once(
+        renderer_gl,
+        "\tif (copySize == 0) {\n"
+        "\t\tprintf(\"TextureCopy total bytes less than 16!\\n\");\n"
+        "\t\treturn;\n"
+        "\t}",
+        "\tif (copySize == 0) {\n"
+        "\t\tprintf(\"TextureCopy total bytes less than 16!\\n\");\n"
+        "\t\treturn;\n"
+        "\t}\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\tHelpers::g_pandaPerf.texCopyCalls++;\n"
+        "#endif",
+    )
+    replace_once(
+        renderer_gl,
+        "\tif (inputWidth != outputWidth) {\n"
+        "\t\tHelpers::warn(\"Input width does not match output width, cannot accelerate texture copy!\");\n"
+        "\t\treturn;\n"
+        "\t}",
+        "\tif (inputWidth != outputWidth) {\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\t\tHelpers::g_pandaPerf.texCopySwFallbacks++;\n"
+        "#endif\n"
+        "\t\tdoSoftwareTextureCopy(inputAddr, outputAddr, copySize, inputWidth, inputGap, outputWidth, outputGap);\n"
+        "\t\tconst u32 outSpan = (outputGap != 0 && outputWidth != 0)\n"
+        "\t\t                        ? (((copySize + outputWidth - 1u) / outputWidth) * (outputWidth + outputGap))\n"
+        "\t\t                        : copySize;\n"
+        "\t\tinvalidateTextureRange(outputAddr, outSpan);\n"
+        "\t\treturn;\n"
+        "\t}",
+    )
+    replace_once(
+        renderer_gl,
+        "\tif (inputWidth != 0) [[likely]] {\n"
+        "\t\tcopyHeight = (copySize / inputWidth) * 8;\n"
+        "\t} else {\n"
+        "\t\tHelpers::warn(\"Zero-width texture copy\");\n"
+        "\t\treturn;\n"
+        "\t}",
+        "\tif (inputWidth != 0) [[likely]] {\n"
+        "\t\tcopyHeight = (copySize / inputWidth) * 8;\n"
+        "\t} else {\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\t\tHelpers::g_pandaPerf.texCopySwFallbacks++;\n"
+        "#endif\n"
+        "\t\tdoSoftwareTextureCopy(inputAddr, outputAddr, copySize, inputWidth, inputGap, outputWidth, outputGap);\n"
+        "\t\tinvalidateTextureRange(outputAddr, copySize);\n"
+        "\t\treturn;\n"
+        "\t}",
+    )
+    renderer_cpp = p3ds_dir / "src" / "renderer.cpp"
+    replace_once(
+        renderer_cpp,
+        "\tif (inputPointer == nullptr || outputPointer == nullptr) {\n\t\treturn;\n\t}",
+        "\tif (inputPointer == nullptr || outputPointer == nullptr) {\n"
+        "\t\treturn;\n"
+        "\t}\n"
+        "\tif (inputWidth == 0) {\n"
+        "\t\tinputWidth = copySize;\n"
+        "\t\tinputGap = 0;\n"
+        "\t}\n"
+        "\tif (outputWidth == 0) {\n"
+        "\t\toutputWidth = copySize;\n"
+        "\t\toutputGap = 0;\n"
+        "\t}",
     )
     replace_once(
         renderer_gl,
@@ -6932,6 +7229,26 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
     )
     replace_once(
         shader_decompiler_cpp,
+        "\tif (config.accurateShaderMul) {\n"
+        "\t\t// Safe multiplication handler from Citra: Handles the PICA's 0 * inf = 0 edge case\n"
+        "\t\tdecompiledShader += R\"(\n"
+        "\t\t\tvec4 safe_mul(vec4 a, vec4 b) {\n"
+        "\t\t\t\tvec4 res = a * b;\n"
+        "\t\t\t\treturn mix(res, mix(mix(vec4(0.0), res, isnan(b)), res, isnan(a)), isnan(res));\n"
+        "\t\t\t}\n"
+        "\t\t)\";\n"
+        "\t}",
+        "\tif (config.accurateShaderMul) {\n"
+        "\t\t// Safe multiplication handler: PICA returns 0 whenever either operand is 0 (0 * inf = 0, 0 * NaN = 0)\n"
+        "\t\tdecompiledShader += R\"(\n"
+        "\t\t\tvec4 safe_mul(vec4 a, vec4 b) {\n"
+        "\t\t\t\treturn mix(mix(a * b, vec4(0.0), equal(a, vec4(0.0))), vec4(0.0), equal(b, vec4(0.0)));\n"
+        "\t\t\t}\n"
+        "\t\t)\";\n"
+        "\t}",
+    )
+    replace_once(
+        shader_decompiler_cpp,
         "void ShaderDecompiler::callFunction(const Function& function) {\n"
         "\tswitch (function.exitMode) {\n"
         "\t\t// This function always ends, so call it and return true to signal that we're gonna be ending the shader\n"
@@ -6999,6 +7316,98 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
     )
     replace_once(
         shader_gen_glsl,
+        "\t\tret += R\"(\n"
+        "\t\t\tvec3 rotateVec3ByQuaternion(vec3 v, vec4 q) {",
+        "\t\tret += R\"(\n"
+        "\t\t\tvec3 safeNormalize3(vec3 v) {\n"
+        "\t\t\t\tfloat lenSq = dot(v, v);\n"
+        "\t\t\t\treturn lenSq > 0.0 ? (v * inversesqrt(lenSq)) : vec3(0.0);\n"
+        "\t\t\t}\n\n"
+        "\t\t\tvec4 safeNormalize4(vec4 v) {\n"
+        "\t\t\t\tfloat lenSq = dot(v, v);\n"
+        "\t\t\t\treturn lenSq > 0.0 ? (v * inversesqrt(lenSq)) : vec4(0.0, 0.0, 0.0, 1.0);\n"
+        "\t\t\t}\n\n"
+        "\t\t\tvec3 rotateVec3ByQuaternion(vec3 v, vec4 q) {",
+    )
+    replace_once(
+        shader_gen_glsl,
+        "\t\tvoid main() {\n"
+        "\t\t\tvec4 combinerOutput = v_colour;",
+        "\t\tvoid main() {\n"
+        "\t\t\tvec4 combinerOutput = vec4(0.0);",
+    )
+    replace_once(
+        shader_gen_glsl,
+        "\tif (!tev.isPassthroughStage()) {\n"
+        "\t\t// Get color operands\n"
+        "\t\tshader += \"colorOp1 = \";\n"
+        "\t\tgetColorOperand(shader, tev.colorSource1, tev.colorOperand1, stage, config);\n\n"
+        "\t\tshader += \";\\ncolorOp2 = \";\n"
+        "\t\tgetColorOperand(shader, tev.colorSource2, tev.colorOperand2, stage, config);\n\n"
+        "\t\tshader += \";\\ncolorOp3 = \";\n"
+        "\t\tgetColorOperand(shader, tev.colorSource3, tev.colorOperand3, stage, config);\n\n"
+        "\t\tshader += \";\\nvec3 outputColor\" + std::to_string(stage) + \" = clamp(\";\n"
+        "\t\tgetColorOperation(shader, tev.colorOp);\n"
+        "\t\tshader += \", vec3(0.0), vec3(1.0));\\n\";\n\n"
+        "\t\tif (tev.colorOp == TexEnvConfig::Operation::Dot3RGBA) {\n"
+        "\t\t\t// Dot3 RGBA also writes to the alpha component so we don't need to do anything more\n"
+        "\t\t\tshader += \"float outputAlpha\" + std::to_string(stage) + \" = outputColor\" + std::to_string(stage) + \".x;\\n\";\n"
+        "\t\t} else {\n"
+        "\t\t\t// Get alpha operands\n"
+        "\t\t\tshader += \"alphaOp1 = \";\n"
+        "\t\t\tgetAlphaOperand(shader, tev.alphaSource1, tev.alphaOperand1, stage, config);\n\n"
+        "\t\t\tshader += \";\\nalphaOp2 = \";\n"
+        "\t\t\tgetAlphaOperand(shader, tev.alphaSource2, tev.alphaOperand2, stage, config);",
+        "\tif (stage == 0 || !tev.isPassthroughStage()) {\n"
+        "\t\tauto resolveStage0 = [&](TexEnvConfig::Source s, TexEnvConfig::Source src3) {\n"
+        "\t\t\treturn (stage == 0 && s == TexEnvConfig::Source::Previous) ? src3 : s;\n"
+        "\t\t};\n"
+        "\t\t// Get color operands\n"
+        "\t\tshader += \"colorOp1 = \";\n"
+        "\t\tgetColorOperand(shader, resolveStage0(tev.colorSource1, tev.colorSource3), tev.colorOperand1, stage, config);\n\n"
+        "\t\tshader += \";\\ncolorOp2 = \";\n"
+        "\t\tgetColorOperand(shader, resolveStage0(tev.colorSource2, tev.colorSource3), tev.colorOperand2, stage, config);\n\n"
+        "\t\tshader += \";\\ncolorOp3 = \";\n"
+        "\t\tgetColorOperand(shader, tev.colorSource3, tev.colorOperand3, stage, config);\n\n"
+        "\t\tshader += \";\\nvec3 outputColor\" + std::to_string(stage) + \" = clamp(\";\n"
+        "\t\tgetColorOperation(shader, tev.colorOp);\n"
+        "\t\tshader += \", vec3(0.0), vec3(1.0));\\n\";\n\n"
+        "\t\tif (tev.colorOp == TexEnvConfig::Operation::Dot3RGBA) {\n"
+        "\t\t\t// Dot3 RGBA also writes to the alpha component so we don't need to do anything more\n"
+        "\t\t\tshader += \"float outputAlpha\" + std::to_string(stage) + \" = outputColor\" + std::to_string(stage) + \".x;\\n\";\n"
+        "\t\t} else {\n"
+        "\t\t\t// Get alpha operands\n"
+        "\t\t\tshader += \"alphaOp1 = \";\n"
+        "\t\t\tgetAlphaOperand(shader, resolveStage0(tev.alphaSource1, tev.alphaSource3), tev.alphaOperand1, stage, config);\n\n"
+        "\t\t\tshader += \";\\nalphaOp2 = \";\n"
+        "\t\t\tgetAlphaOperand(shader, resolveStage0(tev.alphaSource2, tev.alphaSource3), tev.alphaOperand2, stage, config);",
+    )
+    replace_once(
+        shader_gen_glsl,
+        "\t\tcase TexEnvConfig::Source::Texture0: shader += \"texture(u_tex0, v_texcoord0.xy)\"; break;",
+        "\t\tcase TexEnvConfig::Source::Texture0: {\n"
+        "\t\t\tif (config.outConfig.tex0Type == 3u) {\n"
+        "\t\t\t\tshader += \"texture(u_tex0, vec2(v_texcoord0.x, 1.0 - v_texcoord0.y) / (v_texcoord0.z != 0.0 ? v_texcoord0.z : 1.0) * vec2(1.0, -1.0) + vec2(0.0, 1.0))\";\n"
+        "\t\t\t} else if (config.outConfig.tex0Type == 5u) {\n"
+        "\t\t\t\tshader += \"vec4(0.0)\";\n"
+        "\t\t\t} else {\n"
+        "\t\t\t\tshader += \"texture(u_tex0, v_texcoord0.xy)\";\n"
+        "\t\t\t}\n"
+        "\t\t\tbreak;\n"
+        "\t\t}",
+    )
+    replace_once(
+        shader_gen_glsl,
+        "\tshader += \"int testingAlpha = int(combinerOutput.a * 255.0);\\n\";",
+        "\tshader += \"int testingAlpha = int(combinerOutput.a * 255.0 + 0.5);\\n\";",
+    )
+    replace_once(
+        shader_gen_glsl,
+        "\tshader += \"vec3 normal = rotateVec3ByQuaternion(vec3(0.0, 0.0, 1.0), v_quaternion);\\n\";",
+        "\tshader += \"vec3 normal = rotateVec3ByQuaternion(vec3(0.0, 0.0, 1.0), safeNormalize4(v_quaternion));\\n\";",
+    )
+    replace_once(
+        shader_gen_glsl,
         "\tshader += R\"(\n"
         "\t\tvec4 diffuse_sum = vec4(0.0, 0.0, 0.0, 1.0);\n"
         "\t\tvec4 specular_sum = vec4(0.0, 0.0, 0.0, 1.0);\n"
@@ -7006,7 +7415,7 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\tshader += R\"(\n"
         "\t\tvec4 diffuse_sum = vec4(0.0, 0.0, 0.0, 1.0);\n"
         "\t\tvec4 specular_sum = vec4(0.0, 0.0, 0.0, 1.0);\n"
-        "\t\tvec3 view_dir = normalize(v_view);\n"
+        "\t\tvec3 view_dir = safeNormalize3(v_view);\n"
         "\t\tvec3 light_position, light_vector, half_vector, norm_half, specular0, specular1, reflected_color;",
     )
     replace_once(
@@ -7020,9 +7429,9 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\t)\";",
         "\t\tshader += R\"(\n"
         "\t\t\tlight_distance = length(light_vector);\n"
-        "\t\t\tlight_vector = normalize(light_vector);\n"
+        "\t\t\tlight_vector = safeNormalize3(light_vector);\n"
         "\t\t\thalf_vector = light_vector + view_dir;\n"
-        "\t\t\tnorm_half = normalize(half_vector);\n\n"
+        "\t\t\tnorm_half = safeNormalize3(half_vector);\n\n"
         "\t\t\tdistance_attenuation = 1.0;\n"
         "\t\t\tNdotL = dot(normal, light_vector);\n"
         "\t\t)\";",
@@ -7035,6 +7444,39 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\tcase 0: shader += \"lut_lookup_delta = dot(normal, norm_half);\\n\"; break;\n"
         "\t\tcase 1: shader += \"lut_lookup_delta = dot(view_dir, norm_half);\\n\"; break;\n"
         "\t\tcase 2: shader += \"lut_lookup_delta = dot(normal, view_dir);\\n\"; break;",
+    )
+
+    config_hpp = p3ds_dir / "include" / "config.hpp"
+    replace_once(
+        config_hpp,
+        "\tbool accurateShaderMul = false;",
+        "#ifdef __EMSCRIPTEN__\n"
+        "\tbool accurateShaderMul = true;\n"
+        "#else\n"
+        "\tbool accurateShaderMul = false;\n"
+        "#endif",
+    )
+
+    float_types_hpp = p3ds_dir / "include" / "PICA" / "float_types.hpp"
+    replace_once(
+        float_types_hpp,
+        "\t\tFloat<M, E> operator*(const Float<M, E>& flt) const {\n"
+        "\t\t\tfloat result = value * flt.toFloat32();\n"
+        "\t\t\t// PICA gives 0 instead of NaN when multiplying by inf\n"
+        "\t\t\tif (std::isnan(result))\n"
+        "\t\t\t\tif (!std::isnan(value) && !std::isnan(flt.toFloat32())) result = 0.f;\n"
+        "\t\t\treturn Float<M, E>::fromFloat32(result);\n"
+        "\t\t}",
+        "\t\tFloat<M, E> operator*(const Float<M, E>& flt) const {\n"
+        "\t\t\tconst float rhs = flt.toFloat32();\n"
+        "\t\t\tif (value == 0.0f || rhs == 0.0f) {\n"
+        "\t\t\t\treturn Float<M, E>::fromFloat32(0.f);\n"
+        "\t\t\t}\n"
+        "\t\t\tfloat result = value * rhs;\n"
+        "\t\t\tif (std::isnan(result))\n"
+        "\t\t\t\tif (!std::isnan(value) && !std::isnan(rhs)) result = 0.f;\n"
+        "\t\t\treturn Float<M, E>::fromFloat32(result);\n"
+        "\t\t}",
     )
 
     # 5c. Fix glGenTextures leak and add fast tile-based texture decoders
@@ -8291,7 +8733,7 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\tconst double fps = (static_cast<double>(Helpers::g_pandaPerf.frames) * 1000.0) / elapsedMs;\n"
         "\t\tconst double mips = static_cast<double>(Helpers::g_pandaPerf.armInstrs) / (elapsedMs * 1000.0);\n"
         "\t\tstd::printf(\n"
-        "\t\t\t\"[Perf] fps=%.1f cpu=%.2fms gpu=%.2fms disp=%.2fms mir=%.2fms mips=%.1f draws=%.1f sw=%.1f imm=%.1f texMiss=%llu shCmp=%llu acc=%d swOff=%llu decF=%llu glF=%llu repk=%llu gs=%llu/%llu ptex=%llu\\n\",\n"
+        "\t\t\t\"[Perf] fps=%.1f cpu=%.2fms gpu=%.2fms disp=%.2fms mir=%.2fms mips=%.1f draws=%.1f sw=%.1f imm=%.1f texMiss=%llu shCmp=%llu acc=%d swOff=%llu decF=%llu glF=%llu repk=%llu gs=%llu/%llu ptex=%llu nb=%llu stnc=%llu t0m=%x fogM=%x cbTex=%llu tc=%llu/%llu qMax=%u\\n\",\n"
         "\t\t\tfps,\n"
         "\t\t\tHelpers::g_pandaPerf.cpuMs * invFrames,\n"
         "\t\t\tHelpers::g_pandaPerf.gpuMs * invFrames,\n"
@@ -8310,7 +8752,15 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.vsRepack),\n"
         "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.gsDraws),\n"
         "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.gsTris),\n"
-        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.ptexDraws)\n"
+        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.ptexDraws),\n"
+        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.noBlendDraws),\n"
+        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.stencilDraws),\n"
+        "\t\t\tHelpers::g_pandaPerf.tex0TypeMask,\n"
+        "\t\t\tHelpers::g_pandaPerf.fogModeMask,\n"
+        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.cbTexHits),\n"
+        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.texCopyCalls),\n"
+        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.texCopySwFallbacks),\n"
+        "\t\t\tHelpers::g_pandaPerf.gspQueueMax\n"
         "\t\t);\n"
         "\t\tHelpers::g_pandaPerf = {};\n"
         "\t\tperfLastMs = perfNowMs;\n"
