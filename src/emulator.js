@@ -7,6 +7,8 @@
  * - Forwards Bottom Screen pointer drags/clicks as SDL2 mouse events
  */
 
+import { t } from './i18n.js';
+
 /* global __WASM_BUILD_HASH__ */
 const WASM_BUILD_HASH = typeof __WASM_BUILD_HASH__ === 'string' ? __WASM_BUILD_HASH__ : '';
 const WASM_QUERY = WASM_BUILD_HASH ? `?v=${WASM_BUILD_HASH}` : '';
@@ -143,11 +145,7 @@ export class Panda3DSEmulator {
     fresh.height = 480;
     fresh.tabIndex = -1;
     const ariaLabel = this.#emuCanvas.getAttribute('aria-label');
-    if (ariaLabel) {
-      fresh.setAttribute('aria-label', ariaLabel);
-    } else {
-      fresh.setAttribute('aria-hidden', 'true');
-    }
+    fresh.setAttribute('aria-label', ariaLabel || t('canvas.topAria'));
     this.#emuCanvas.replaceWith(fresh);
     this.#emuCanvas = fresh;
   }
@@ -156,13 +154,13 @@ export class Panda3DSEmulator {
     try {
       const resp = await fetch(`/wasm/Panda3DS.js${WASM_QUERY}`, { method: 'HEAD', cache: 'no-store' });
       if (!resp.ok) {
-        return { available: false, reason: `HTTP ${resp.status} ao buscar /wasm/Panda3DS.js` };
+        return { available: false, reason: t('emu.httpError', { status: resp.status }) };
       }
       const ctype = resp.headers.get('content-type') || '';
       if (ctype.includes('text/html')) {
         return {
           available: false,
-          reason: 'O servidor retornou HTML (fallback) em /wasm/Panda3DS.js — o núcleo WASM ainda não foi compilado em public/wasm/.',
+          reason: t('emu.htmlFallbackError'),
         };
       }
       return { available: true };
@@ -173,7 +171,7 @@ export class Panda3DSEmulator {
 
   async launchRom(romFileName, romBytes) {
     if (!window.crossOriginIsolated) {
-      this.#onLog?.('Aviso: crossOriginIsolated está desativado; SharedArrayBuffer pode estar indisponível.');
+      this.#onLog?.(t('emu.noCoiWarn'));
     }
 
     const safeFileName = romFileName.replace(/[^\w.\-]/g, '_');
@@ -191,7 +189,7 @@ export class Panda3DSEmulator {
       this.#startMirrorHook();
       this.#module._emscripten_resume_main_loop?.();
       this.#module.resumeMainLoop?.();
-      this.#onStatus?.(`Retomando ${safeFileName}...`);
+      this.#onStatus?.(t('emu.resuming', { name: safeFileName }));
       return { ok: true };
     }
 
@@ -230,7 +228,7 @@ export class Panda3DSEmulator {
     window.__log = window.__log || [];
     window.__statsLog = window.__statsLog || [];
 
-    this.#onStatus?.('Carregando núcleo Panda3DS.js...');
+    this.#onStatus?.(t('emu.loadingCore'));
     const { promise, resolve, reject } = Promise.withResolvers();
 
     const moduleConfig = {
@@ -247,7 +245,7 @@ export class Panda3DSEmulator {
         this.#running = false;
         this.#paused = false;
         this.#stopMirrorHook();
-        this.#onStatus?.(`Emulador abortado: ${what}`);
+        this.#onStatus?.(t('emu.emulatorAborted', { what }));
         this.#onLog?.(`[Abort] ${what}`);
         this.#onAbort?.(String(what));
       },
@@ -277,7 +275,7 @@ export class Panda3DSEmulator {
         }
       }
     } catch (err) {
-      reject(new Error(`Falha ao carregar /wasm/Panda3DS.js: ${err.message}`, { cause: err }));
+      reject(new Error(t('emu.wasmLoadFailed', { error: err.message }), { cause: err }));
     }
 
     await promise;
@@ -294,7 +292,7 @@ export class Panda3DSEmulator {
     script.async = true;
     script.dataset.panda3dsRuntime = 'true';
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error(`Erro de rede ao carregar ${src}`));
+    script.onerror = () => reject(new Error(`Network error loading ${src}`));
     document.head.append(script);
     return promise;
   }
@@ -307,7 +305,7 @@ export class Panda3DSEmulator {
     const FS = mod.FS;
     const IDBFS = mod.IDBFS || FS?.filesystems?.IDBFS;
     if (!FS) {
-      reject(new Error('Module.FS não está exportado no build WebAssembly.'));
+      reject(new Error(t('emu.noModuleFs')));
       return;
     }
 
@@ -332,12 +330,12 @@ export class Panda3DSEmulator {
         }
       }
 
-      this.#onStatus?.('Sincronizando saves (/user <-> IndexedDB)...');
+      this.#onStatus?.(t('emu.syncingSaves'));
       FS.syncfs(true, (syncErr) => {
         if (syncErr) {
-          this.#onLog?.(`[IDBFS] Erro ao restaurar /user: ${syncErr}`);
+          this.#onLog?.(t('emu.idbfsRestoreError', { error: syncErr }));
         } else {
-          this.#onLog?.('[IDBFS] /user restaurado com sucesso do IndexedDB.');
+          this.#onLog?.(t('emu.idbfsRestored'));
         }
 
         try {
@@ -350,7 +348,7 @@ export class Panda3DSEmulator {
         }
       });
     } catch (err) {
-      reject(new Error(`Erro ao inicializar sistema de arquivos IDBFS: ${err.message}`, { cause: err }));
+      reject(new Error(t('emu.idbfsInitError', { error: err.message }), { cause: err }));
     }
   }
 
@@ -358,14 +356,14 @@ export class Panda3DSEmulator {
     mod.FS.mkdirTree('/roms');
     mod.FS.writeFile(romPath, romBytes);
     this.#activeRomPath = romPath;
-    this.#onLog?.(`[FS] ROM gravada em ${romPath} (${romBytes.byteLength} bytes)`);
+    this.#onLog?.(t('emu.romWritten', { path: romPath, bytes: romBytes.byteLength }));
 
     this.#running = true;
     this.#paused = false;
     this.resetWebInput();
     this.#applyRuntimePerfSettings();
     this.#startMirrorHook();
-    this.#onStatus?.(`Executando ${romPath.split('/').pop()}...`);
+    this.#onStatus?.(t('emu.running', { name: romPath.split('/').pop() }));
 
     try {
       mod.callMain([romPath]);
@@ -553,7 +551,7 @@ export class Panda3DSEmulator {
     try {
       this.#module.FS.syncfs(false, (err) => {
         this.#syncInFlight = false;
-        if (err) this.#onLog?.(`[IDBFS] Erro na sincronização: ${err}`);
+        if (err) this.#onLog?.(t('emu.idbfsSyncError', { error: err }));
         resolve();
       });
     } catch {

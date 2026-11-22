@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-i18n-title="sobre.pageTitle">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -46,6 +46,47 @@
       font-size: 0.9rem;
     }
     a.back-btn:hover { background: #0ea5e9; }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .lang-switcher {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 2px;
+      min-block-size: 34px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #121b2d;
+    }
+    .lang-btn {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: #cbd5e1;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      min-block-size: 28px;
+      min-inline-size: 34px;
+      padding: 0 9px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .lang-btn:hover { background: #1e293b; color: #ffffff; }
+    .lang-btn.is-active,
+    .lang-btn[aria-pressed="true"] {
+      background: #0284c7;
+      color: #ffffff;
+    }
+    .lang-btn:focus-visible,
+    a.back-btn:focus-visible {
+      outline: 2px solid #38bdf8;
+      outline-offset: 2px;
+    }
     .sub-nav {
       display: flex;
       flex-wrap: wrap;
@@ -169,38 +210,44 @@
 <body>
   <div class="wrap">
     <header>
-      <h1>Panda3DS Web — Guia, Privacidade &amp; Termos Legais</h1>
-      <a class="back-btn" href="/">◀ Voltar para o Emulador</a>
+      <h1 data-i18n="sobre.h1">Panda3DS Web — Guia, Privacidade &amp; Termos Legais</h1>
+      <div class="header-actions">
+        <div class="lang-switcher" role="group" data-i18n-aria-label="lang.groupAria" aria-label="Seletor de idioma">
+          <button type="button" class="lang-btn" data-lang-btn="pt" lang="pt-BR" aria-pressed="true">PT</button>
+          <button type="button" class="lang-btn" data-lang-btn="en" lang="en" aria-pressed="false">EN</button>
+        </div>
+        <a class="back-btn" href="/" data-i18n="sobre.backBtn">◀ Voltar para o Emulador</a>
+      </div>
     </header>
 
-    <nav class="sub-nav" aria-label="Índice da página">
-      <a href="#arquitetura">Arquitetura Técnica</a>
-      <a href="#controles">Guia de Controles</a>
-      <a href="#privacidade">Política de Privacidade &amp; Cookies</a>
-      <a href="#termos">Termos de Uso &amp; Direitos Autorais</a>
-      <a href="#contato">Contato &amp; DMCA</a>
+    <nav class="sub-nav" data-i18n-aria-label="sobre.navAria" aria-label="Índice da página">
+      <a href="#arquitetura" data-i18n="sobre.navArch">Arquitetura Técnica</a>
+      <a href="#controles" data-i18n="sobre.navControls">Guia de Controles</a>
+      <a href="#privacidade" data-i18n="sobre.navPrivacy">Política de Privacidade &amp; Cookies</a>
+      <a href="#termos" data-i18n="sobre.navTerms">Termos de Uso &amp; Direitos Autorais</a>
+      <a href="#contato" data-i18n="sobre.navContact">Contato &amp; DMCA</a>
     </nav>
 
     <main>
       <section class="card" id="arquitetura">
-        <h2>Arquitetura Técnica: Emulação ARM11 em WebAssembly</h2>
-        <p>
+        <h2 data-i18n="sobre.archTitle">Arquitetura Técnica: Emulação ARM11 em WebAssembly</h2>
+        <p data-i18n-html="sobre.archIntroHtml">
           <strong>Panda3DS Web</strong> é uma portabilidade educacional e experimental de código aberto baseada no projeto
           <em>Panda3DS</em> (de <code>wheremyfoodat</code>) combinada com um interpretador <strong>ARM11v6K / Thumb / VFPv2 / CP15</strong>
           compilado para WebAssembly via Emscripten.
         </p>
         <ul>
-          <li>
+          <li data-i18n-html="sobre.arch1Html">
             <strong>Renderização Dual-Screen em WebGL2:</strong> A GPU PICA200 é traduzida para chamadas OpenGL ES 3.0 / WebGL2 e
             espelhada em tempo real nos dois canvases independentes do console (<code>400×240</code> na tela superior e
             <code>320×240</code> na tela tátil inferior).
           </li>
-          <li>
+          <li data-i18n-html="sobre.arch2Html">
             <strong>Armazenamento Persistente IDBFS (<code>/user</code>):</strong> Os arquivos de save gerados durante a execução são
             sincronizados com o banco de dados local <code>IndexedDB</code> do navegador, permitindo exportar ou importar pacotes
             <code>.zip</code> e <code>.sav</code> sem depender de servidores externos.
           </li>
-          <li>
+          <li data-i18n-html="sobre.arch3Html">
             <strong>Demonstração Homebrew Licenciada:</strong> A aplicação carrega por padrão exclusivamente o jogo homebrew
             <em>Block Blast</em> (<code>blockblast.3dsx</code>, distribuído sob licença open-source Zlib), demonstrando a execução
             de binários <code>.3dsx</code> diretamente no navegador.
@@ -209,8 +256,8 @@
       </section>
 
       <!-- Espaço de publicidade / apoio com margem segura de 32px -->
-      <aside class="card ad-card" id="sobre-ad-container" aria-label="Publicidade e apoio ao projeto">
-        <strong style="font-size: 0.78rem; color: #94a3b8; letter-spacing: 0.06em;">
+      <aside class="card ad-card" id="sobre-ad-container" data-i18n-aria-label="ad.slotAria" aria-label="Publicidade e apoio ao projeto">
+        <strong data-i18n="sobre.adHeading" style="font-size: 0.78rem; color: #94a3b8; letter-spacing: 0.06em;">
           PUBLICIDADE / APOIO AO PROJETO (ROTA SEM BLOQUEIO COEP)
         </strong>
         <ins
@@ -226,60 +273,60 @@
       </aside>
 
       <section class="card" id="controles">
-        <h2>Controles: Teclado, Gamepad e Mouse Direcional</h2>
-        <p>
+        <h2 data-i18n="sobre.controlsTitle">Controles: Teclado, Gamepad e Mouse Direcional</h2>
+        <p data-i18n-html="sobre.controlsIntroHtml">
           O emulador aceita controles físicos USB e Bluetooth via <em>Web Gamepad API</em> (Xbox, PlayStation DualShock/DualSense,
           Nintendo Switch Pro Controller, 8BitDo), teclado completo, cliques ou toques na tela inferior e movimento do mouse
           para simular o Circle Pad analógico.
         </p>
         <table>
-          <caption>Referência Completa de Mapeamento</caption>
+          <caption data-i18n="sobre.tableCaption">Referência Completa de Mapeamento</caption>
           <thead>
             <tr>
-              <th scope="col">Comando do Console</th>
-              <th scope="col">Teclado</th>
-              <th scope="col">Gamepad / Mouse</th>
+              <th scope="col" data-i18n="sobre.thCommand">Comando do Console</th>
+              <th scope="col" data-i18n="sobre.thKeyboard">Teclado</th>
+              <th scope="col" data-i18n="sobre.thGamepadMouse">Gamepad / Mouse</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <th scope="row">Analógico (Circle Pad)</th>
+              <th scope="row" data-i18n="sobre.rowAnalog">Analógico (Circle Pad)</th>
               <td><code>W A S D</code></td>
-              <td>Analógico Esquerdo ou Movimento do Mouse</td>
+              <td data-i18n="sobre.rowAnalogGp">Analógico Esquerdo ou Movimento do Mouse</td>
             </tr>
             <tr>
-              <th scope="row">D-Pad (Cruzeta Digital)</th>
-              <td><code>Setas ↑ ↓ ← →</code></td>
-              <td>Direcional Digital (D-Pad)</td>
+              <th scope="row" data-i18n="sobre.rowDpad">D-Pad (Cruzeta Digital)</th>
+              <td data-i18n-html="sobre.rowDpadKeysHtml"><code>Setas ↑ ↓ ← →</code></td>
+              <td data-i18n="sobre.rowDpadGp">Direcional Digital (D-Pad)</td>
             </tr>
             <tr>
-              <th scope="row">Botões A / B / X / Y</th>
-              <td><code>L / K / O / I</code> ou <code>X / Z / V / C</code></td>
-              <td>Botões Frontais do Controle ou Clique na UI</td>
+              <th scope="row" data-i18n="sobre.rowAbxy">Botões A / B / X / Y</th>
+              <td data-i18n-html="sobre.rowAbxyKeysHtml"><code>L / K / O / I</code> ou <code>X / Z / V / C</code></td>
+              <td data-i18n="sobre.rowAbxyGp">Botões Frontais do Controle ou Clique na UI</td>
             </tr>
             <tr>
-              <th scope="row">Ombros L / R e Gatilhos ZL / ZR</th>
-              <td><code>Q / P</code> e <code>1 / 0</code></td>
+              <th scope="row" data-i18n="sobre.rowShoulders">Ombros L / R e Gatilhos ZL / ZR</th>
+              <td data-i18n-html="sobre.rowShouldersKeysHtml"><code>Q / P</code> e <code>1 / 0</code></td>
               <td>LB / RB e LT / RT</td>
             </tr>
             <tr>
               <th scope="row">START / SELECT / HOME</th>
               <td><code>Enter</code> / <code>Backspace</code> / <code>H</code></td>
-              <td>Start / Select / Botão Guia</td>
+              <td data-i18n="sobre.rowStartGp">Start / Select / Botão Guia</td>
             </tr>
             <tr>
-              <th scope="row">Tela Cheia (Somente Telas)</th>
-              <td><code>F</code> (<code>Esc</code> para sair)</td>
-              <td>Oculta toda a moldura e exibe apenas as duas telas</td>
+              <th scope="row" data-i18n="sobre.rowFullscreen">Tela Cheia (Somente Telas)</th>
+              <td data-i18n-html="sobre.rowFullscreenKeysHtml"><code>F</code> (<code>Esc</code> para sair)</td>
+              <td data-i18n="sobre.rowFullscreenDesc">Oculta toda a moldura e exibe apenas as duas telas</td>
             </tr>
           </tbody>
         </table>
       </section>
 
       <section class="card" id="privacidade">
-        <h2>Política de Privacidade e Uso de Cookies (LGPD / GDPR / Cláusula 10 Google AdSense)</h2>
-        <h3>1. Processamento 100% Local (Client-Side)</h3>
-        <p>
+        <h2 data-i18n="sobre.privacyTitle">Política de Privacidade e Uso de Cookies (LGPD / GDPR / Cláusula 10 Google AdSense)</h2>
+        <h3 data-i18n="sobre.privacy1Heading">1. Processamento 100% Local (Client-Side)</h3>
+        <p data-i18n-html="sobre.privacy1Html">
           O Panda3DS Web opera exclusivamente no navegador do usuário. Todos os arquivos de aplicativos (<code>.3dsx</code>,
           <code>.3ds</code>, <code>.cci</code>, <code>.cxi</code>) e arquivos de progresso/save (<code>.sav</code>, <code>.dat</code>,
           <code>.zip</code>) abertos pelo usuário são lidos apenas na memória local (<code>ArrayBuffer</code> / <code>MEMFS</code>) e
@@ -287,31 +334,31 @@
           coletado ou armazenado em servidores externos.
         </p>
 
-        <h3>2. Armazenamento Local (LocalStorage e IndexedDB)</h3>
-        <p>
+        <h3 data-i18n="sobre.privacy2Heading">2. Armazenamento Local (LocalStorage e IndexedDB)</h3>
+        <p data-i18n-html="sobre.privacy2Html">
           Utilizamos o <code>localStorage</code> exclusivamente para lembrar suas preferências técnicas locais (como a escala de
           clock ARM11 e o estado de ativação do áudio) e o banco <code>IndexedDB</code> para guardar seus arquivos de salvamento em
           <code>/user</code>. Você pode apagar todos esses dados instantaneamente clicando em <strong>"Limpar /user"</strong> no
           Gerenciador de Saves ou limpando os dados do site nas configurações do navegador.
         </p>
 
-        <h3>3. Cookies de Terceiros e Publicidade (Google AdSense e Redes Parceiras)</h3>
-        <p>
+        <h3 data-i18n="sobre.privacy3Heading">3. Cookies de Terceiros e Publicidade (Google AdSense e Redes Parceiras)</h3>
+        <p data-i18n-html="sobre.privacy3IntroHtml">
           Este site pode exibir anúncios fornecidos por redes de publicidade como <strong>A-Ads</strong>, <strong>Adsterra / Monetag</strong>
           (em formato estrito de banner display nativo) ou <strong>Google AdSense</strong>, além de opções de apoio direto via Pix e Ko-fi:
         </p>
         <ul>
-          <li>
+          <li data-i18n-html="sobre.privacy3Li1Html">
             <strong>Terceiros e Cookie DoubleClick/DART (Cláusula 10):</strong> Terceiros, incluindo o Google, utilizam cookies para
             veicular anúncios com base nas visitas anteriores do usuário a este website ou a outros websites na Internet.
           </li>
-          <li>
+          <li data-i18n-html="sobre.privacy3Li2Html">
             <strong>Publicidade Personalizada e Como Desativar (Opt-Out):</strong> Com o uso de cookies de publicidade, o Google e seus
             parceiros podem veicular anúncios para os usuários com base nas visitas feitas a este e a outros sites na Internet.
             Os usuários podem desativar a publicidade personalizada a qualquer momento acessando as
             <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer">Configurações de Anúncios do Google (Ads Settings)</a>.
           </li>
-          <li>
+          <li data-i18n-html="sobre.privacy3Li3Html">
             <strong>Opt-Out Geral de Cookies de Terceiros:</strong> Alternativamente, você pode desativar o uso de cookies de
             terceiros para publicidade personalizada acessando o portal da Digital Advertising Alliance em
             <a href="https://www.aboutads.info/choices/" target="_blank" rel="noopener noreferrer">www.aboutads.info/choices</a> ou,
@@ -320,8 +367,8 @@
           </li>
         </ul>
 
-        <h3>4. Direitos do Titular de Dados (LGPD e GDPR)</h3>
-        <p>
+        <h3 data-i18n="sobre.privacy4Heading">4. Direitos do Titular de Dados (LGPD e GDPR)</h3>
+        <p data-i18n="sobre.privacy4Body">
           Em conformidade com a Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 — LGPD) no Brasil e o Regulamento Geral
           sobre a Proteção de Dados (GDPR) no Espaço Econômico Europeu, informamos que não coletamos dados pessoais identificáveis
           (como nome, CPF ou cadastro) para uso do emulador. Caso entre em contato por e-mail, seus dados serão utilizados única e
@@ -330,64 +377,70 @@
       </section>
 
       <section class="card" id="termos">
-        <h2>Termos de Uso e Aviso de Propriedade Intelectual</h2>
-        <h3>1. Isenção de Garantias e Finalidade Educacional</h3>
-        <p>
+        <h2 data-i18n="sobre.termsTitle">Termos de Uso e Aviso de Propriedade Intelectual</h2>
+        <h3 data-i18n="sobre.terms1Heading">1. Isenção de Garantias e Finalidade Educacional</h3>
+        <p data-i18n-html="sobre.terms1Html">
           O Panda3DS Web é disponibilizado gratuitamente "no estado em que se encontra" (<em>as-is</em>), com finalidade estritamente
           educacional, de pesquisa em compilação WebAssembly e preservação de software homebrew.
         </p>
 
-        <h3>2. Declaração de Não Afiliação e Uso Descritivo de Marcas</h3>
-        <p>
+        <h3 data-i18n="sobre.terms2Heading">2. Declaração de Não Afiliação e Uso Descritivo de Marcas</h3>
+        <p data-i18n-html="sobre.terms2Html">
           Este projeto não possui vínculo comercial, societário, patrocínio ou endosso da <strong>Nintendo Co., Ltd.</strong>
           Termos técnicos como "Nintendo 3DS", "3DS", "NCCH", "NCSD" e "SMDH" são utilizados exclusivamente com propósito descritivo
           de compatibilidade e documentação técnica (<em>nominative fair use</em>).
         </p>
 
-        <h3>3. Política Estrita Sobre ROMs, BIOS e Direitos Autorais</h3>
-        <p>
+        <h3 data-i18n="sobre.terms3Heading">3. Política Estrita Sobre ROMs, BIOS e Direitos Autorais</h3>
+        <p data-i18n-html="sobre.terms3Html">
           Este website <strong>não hospeda, não fornece, não comercializa e não contém links externos</strong> para download de ROMs
-          comerciais, jogos protegidos por direitos autorais, chaves criptográficas (`aes_keys.txt`), dumps de BIOS ou firmwares
+          comerciais, jogos protegidos por direitos autorais, chaves criptográficas (<code>aes_keys.txt</code>), dumps de BIOS ou firmwares
           proprietários. O usuário compromete-se a carregar apenas softwares homebrew de distribuição livre (como arquivos
           <code>.3dsx</code> autorizados) ou backups próprios gerados legalmente a partir de seus próprios cartuchos físicos.
         </p>
       </section>
 
       <section class="card" id="contato">
-        <h2>Sobre o Mantenedor, Contato &amp; Notificações DMCA</h2>
-        <p>
+        <h2 data-i18n="sobre.contactTitle">Sobre o Mantenedor, Contato &amp; Notificações DMCA</h2>
+        <p data-i18n-html="sobre.contact1Html">
           O núcleo original Panda3DS é desenvolvido pela comunidade open-source sob licença GPLv3, e o jogo de demonstração
           <em>Block Blast</em> (<code>blockblast.3dsx</code>) é um projeto homebrew open-source licenciado sob a licença Zlib.
         </p>
-        <p>
+        <p data-i18n="sobre.contact2Body">
           Para dúvidas técnicas, sugestões, suporte sobre privacidade (LGPD/GDPR) ou notificações formais de propriedade intelectual
           (DMCA), entre em contato com o administrador responsável:
         </p>
         <ul>
-          <li><strong>E-mail de Contato e Conformidade Legal:</strong> <a href="mailto:contato@panda3dsweb.dev">contato@panda3dsweb.dev</a></li>
-          <li><strong>Chave Pix para Apoio ao Projeto:</strong> <code id="sobre-pix-code">apoio@panda3dsweb.dev</code></li>
-          <li><strong>Código-Fonte de Referência (Upstream):</strong> <a href="https://github.com/wheremyfoodat/Panda3DS" target="_blank" rel="noopener noreferrer">github.com/wheremyfoodat/Panda3DS</a></li>
+          <li data-i18n-html="sobre.contactLiEmailHtml"><strong>E-mail de Contato e Conformidade Legal:</strong> <a href="mailto:contato@panda3dsweb.dev">contato@panda3dsweb.dev</a></li>
+          <li><strong data-i18n="sobre.contactPixLabel">Chave Pix para Apoio ao Projeto:</strong> <code id="sobre-pix-code">apoio@panda3dsweb.dev</code></li>
+          <li data-i18n-html="sobre.contactLiRepoHtml"><strong>Código-Fonte de Referência (Upstream):</strong> <a href="https://github.com/wheremyfoodat/Panda3DS" target="_blank" rel="noopener noreferrer">github.com/wheremyfoodat/Panda3DS</a></li>
         </ul>
       </section>
     </main>
 
     <footer>
-      <span>Panda3DS Web — Projeto educacional WebAssembly baseado em Panda3DS e Azahar DynCom ARM11 Interpreter.</span>
-      <a href="/">Voltar ao Emulador</a>
+      <span data-i18n="sobre.footerSpan">Panda3DS Web — Projeto educacional WebAssembly baseado em Panda3DS e Azahar DynCom ARM11 Interpreter.</span>
+      <a href="/" data-i18n="sobre.footerBack">Voltar ao Emulador</a>
     </footer>
   </div>
 
   <script type="module">
+    import { initI18n, onLangChange } from '/src/i18n.js';
     import { initAdSense, getAdSenseConfig } from '/src/adsense.js';
+
+    initI18n();
     const cfg = getAdSenseConfig();
     const pixCodeEl = document.getElementById('sobre-pix-code');
     if (pixCodeEl && cfg.pixKey) {
       pixCodeEl.textContent = cfg.pixKey;
     }
-    initAdSense({
+    const adHandle = initAdSense({
       insElement: document.getElementById('sobre-adsense-unit'),
       statusElement: document.getElementById('sobre-ad-note'),
       containerElement: document.getElementById('sobre-ad-container'),
+    });
+    onLangChange(() => {
+      adHandle?.refreshLanguage?.();
     });
   </script>
 </body>

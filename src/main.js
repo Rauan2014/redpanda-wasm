@@ -6,6 +6,7 @@ import { SaveManager } from './saves.js';
 import { Panda3DSEmulator, HID_KEYS } from './emulator.js';
 import { createInputController } from './input-controller.js';
 import { initAdSense, getAdSenseConfig } from './adsense.js';
+import { initI18n, t, onLangChange } from './i18n.js';
 
 const DEMO_ROM_URL = '/roms/blockblast.3dsx';
 const DEMO_ROM_NAME = 'blockblast.3dsx';
@@ -145,17 +146,17 @@ const emulator = new Panda3DSEmulator({
     console.info(line);
     if (line.includes('Loaded an encrypted ROM')) {
       exitEmulatorView();
-      setStatus('Arquivo criptografado: o Panda3DS Web não inclui chaves proprietárias. Utilize homebrew (.3dsx) ou backup pessoal descriptografado.');
+      setStatusKey('status.encryptedError');
     } else if (line.includes('Should raise coproc exception')) {
       exitEmulatorView();
-      setStatus('Aplicação incompatível com o interpretador WASM atual (instrução de coprocessador ARM não suportada). Teste o homebrew Block Blast (DEMO).');
+      setStatusKey('status.coprocError');
     } else if (line.includes('[FATAL]') && !line.includes('SDMC::OpenArchive') && !line.includes('RenameFile')) {
       setStatus(line.replace(/\x1b\[[0-9;]*m/g, ''));
     }
   },
   onAbort: (reason) => {
     exitEmulatorView();
-    setStatus(`Emulação encerrada: ${reason}`);
+    setStatusKey('status.aborted', { reason });
   },
   onFps: (fps) => {
     if (!emuFpsBadgeEl) return;
@@ -168,8 +169,36 @@ const saveManager = new SaveManager({
   syncFs: () => emulator.syncSavesToIndexedDb(),
 });
 
+let lastStatusKey = null;
+let lastStatusVars = null;
+let lastBatteryState = { level: 1, charging: false };
+let lastGamepadInfo = null;
+let lastMouseMode = 'motion';
+let lastCoreNoticeArgs = null;
+let adHandle = null;
+
 function setStatus(text) {
+  lastStatusKey = null;
+  lastStatusVars = null;
   systemStatusEl.textContent = text;
+}
+
+function setStatusKey(key, vars = {}) {
+  lastStatusKey = key;
+  lastStatusVars = vars;
+  systemStatusEl.textContent = t(key, vars);
+}
+
+function syncLocalizedSlotMeta() {
+  if (!state.customRomBytes) {
+    state.customMeta.title = t('home.slotLoadTitle');
+    if (slotLoadNameEl) {
+      slotLoadNameEl.textContent = t('home.slotLoadTitle');
+    }
+  }
+  state.savesMeta.title = t('home.slotSavesTitle');
+  state.emptyMeta.title = t('home.slotEmptyTitle');
+  state.emptyMeta.cartTitle = t('home.slotEmptyCart');
 }
 
 function getSlotMeta(slotId) {
@@ -185,10 +214,27 @@ function getSlotMeta(slotId) {
   }
 }
 
+function updateBatteryAriaLabel() {
+  const chargingSuffix = lastBatteryState.charging ? t('battery.charging') : '';
+  batteryMeterEl.setAttribute(
+    'aria-label',
+    t('battery.aria', { percent: Math.round(lastBatteryState.level * 100), charging: chargingSuffix }),
+  );
+}
+
+function syncMotionAndAudioButtons() {
+  const paused = cartridge.paused;
+  motionToggleBtn.textContent = paused ? '▶' : '❚❚';
+  motionToggleBtn.setAttribute('aria-label', paused ? t('motion.resumeAria') : t('motion.pauseAria'));
+  const muted = audio.muted;
+  audioToggleBtn.textContent = muted ? '✕' : '♪';
+  audioToggleBtn.setAttribute('aria-label', muted ? t('audio.unmuteAria') : t('audio.muteAria'));
+}
+
 function updateTopBarIsolationBadge() {
   const isolated = Boolean(window.crossOriginIsolated);
   const hasSAB = typeof SharedArrayBuffer === 'function';
-  coiBadgeEl.textContent = isolated ? 'SAB OK' : 'NO COI';
+  coiBadgeEl.textContent = isolated ? t('badge.sabOk') : t('badge.noCoi');
   coiBadgeEl.classList.toggle('is-isolated', isolated);
   coiBadgeEl.classList.toggle('is-unisolated', !isolated);
   coiBadgeEl.title = `crossOriginIsolated=${isolated}, SharedArrayBuffer=${hasSAB}`;
@@ -207,16 +253,14 @@ function startLiveClock() {
 
 async function initBatteryIndicator() {
   const applyLevel = (level, charging) => {
+    lastBatteryState = { level, charging: Boolean(charging) };
     const activeBars = Math.max(1, Math.min(4, Math.ceil(level * 4)));
     const bars = batteryBarsEl.querySelectorAll('i');
     bars.forEach((bar, index) => {
       bar.classList.toggle('is-lit', index < activeBars);
     });
     batteryBarsEl.classList.toggle('is-charging', Boolean(charging));
-    batteryMeterEl.setAttribute(
-      'aria-label',
-      `Bateria ${Math.round(level * 100)}%${charging ? ' (carregando)' : ''}`,
-    );
+    updateBatteryAriaLabel();
   };
 
   applyLevel(1, false);
@@ -284,16 +328,16 @@ function selectSlot(slotId, { impulse = true, sound = true } = {}) {
   // Update dock primary action state
   if (slotId === 'empty') {
     dockOpenBtn.disabled = true;
-    dockOpenBtn.textContent = 'Vazio';
+    dockOpenBtn.textContent = t('home.dockEmpty');
   } else if (slotId === 'saves') {
     dockOpenBtn.disabled = false;
-    dockOpenBtn.textContent = '▶ Gerenciar';
+    dockOpenBtn.textContent = t('home.dockManage');
   } else if (slotId === 'load' && !state.customRomBytes) {
     dockOpenBtn.disabled = false;
-    dockOpenBtn.textContent = '▶ Escolher';
+    dockOpenBtn.textContent = t('home.dockChoose');
   } else {
     dockOpenBtn.disabled = false;
-    dockOpenBtn.textContent = '▶ Abrir';
+    dockOpenBtn.textContent = t('home.dockOpen');
   }
 }
 
@@ -324,10 +368,13 @@ async function preloadDemoRom() {
       selectSlot('demo', { impulse: false, sound: false });
     }
 
-    const coi = window.crossOriginIsolated ? 'crossOriginIsolated ativo (SharedArrayBuffer OK)' : 'Sem COOP/COEP';
-    setStatus(`Pronto • Demo ${DEMO_ROM_NAME} (${(bytes.byteLength / 1024).toFixed(1)} KB) carregada • ${coi}`);
+    setStatusKey('status.readyDemo', {
+      name: DEMO_ROM_NAME,
+      kb: (bytes.byteLength / 1024).toFixed(1),
+      coi: window.crossOriginIsolated ? t('status.coiActive') : t('status.coiInactive'),
+    });
   } catch (err) {
-    setStatus(`Erro ao pré-carregar ROM demo (${DEMO_ROM_URL}): ${err.message}`);
+    setStatusKey('status.preloadError', { url: DEMO_ROM_URL, error: err.message });
   }
 }
 
@@ -354,11 +401,16 @@ async function handleRomFileSelected(file) {
   audio.playInsertCart();
   selectSlot('load', { impulse: true, sound: false });
   const cryptoNote = parsed.encrypted
-    ? ' • ExeFS criptografada (Panda3DS requer ROM descriptografada)'
+    ? t('status.romNoteEncrypted')
     : parsed.iconCanvas
-      ? ' • Ícone SMDH extraído'
+      ? t('status.romNoteIcon')
       : '';
-  setStatus(`ROM selecionada: ${file.name} (${(bytes.byteLength / 1024).toFixed(1)} KB • ${parsed.serial}${cryptoNote})`);
+  setStatusKey('status.romSelected', {
+    name: file.name,
+    kb: (bytes.byteLength / 1024).toFixed(1),
+    serial: parsed.serial,
+    note: cryptoNote,
+  });
 }
 
 function enterEmulatorView() {
@@ -382,19 +434,20 @@ function exitEmulatorView() {
     emuFpsBadgeEl.textContent = '-- FPS';
   }
   cartridge.resume();
-  setStatus('Retornou ao HOME Menu. Saves sincronizados com IDBFS (/user).');
+  setStatusKey('status.returnedHome');
 }
 
-function showCoreNotice(reason, romName, romBytes) {
-  audio.playEmpty();
-  coreNoticeMessageEl.textContent =
-    `O front-end preparou a ROM "${romName}" (${(romBytes.byteLength / 1024).toFixed(1)} KB) e verificou o ambiente WebAssembly, mas o núcleo compilado não está presente em /wasm/Panda3DS.js.`;
+function renderCoreNotice(reason, romName, romBytes) {
+  lastCoreNoticeArgs = { reason, romName, romBytes };
+  const kb = (romBytes.byteLength / 1024).toFixed(1);
+  coreNoticeMessageEl.textContent = t('coreNotice.msg', { romName, kb });
 
+  const coiStatus = window.crossOriginIsolated ? t('coreNotice.coiTrue') : t('coreNotice.coiFalse');
   const items = [
-    `crossOriginIsolated: ${window.crossOriginIsolated ? 'true (SharedArrayBuffer disponível)' : 'false'}`,
-    `ROM pronta para FS.writeFile('/roms/${romName}'): ${(romBytes.byteLength / 1024).toFixed(1)} KB`,
-    `Motivo: ${reason}`,
-    'Gere os artefatos Panda3DS.js, Panda3DS.wasm e Panda3DS.worker.js em public/wasm/ executando scripts/build-wasm.sh (requer fork/patch Emscripten com interpretador ARM11).',
+    t('coreNotice.checkCoi', { status: coiStatus }),
+    t('coreNotice.checkRom', { romName, kb }),
+    t('coreNotice.checkReason', { reason }),
+    t('coreNotice.checkHint'),
   ];
 
   const nodes = items.map((line) => {
@@ -405,6 +458,11 @@ function showCoreNotice(reason, romName, romBytes) {
   });
 
   coreChecklistEl.replaceChildren(...nodes);
+}
+
+function showCoreNotice(reason, romName, romBytes) {
+  audio.playEmpty();
+  renderCoreNotice(reason, romName, romBytes);
   coreNoticeDialog.showModal();
 }
 
@@ -429,12 +487,12 @@ async function launchSelectedSlot() {
   const romBytes = slotId === 'demo' ? state.demoRomBytes : state.customRomBytes;
 
   if (!romBytes || !romName) {
-    setStatus('Nenhuma ROM pronta para iniciar.');
+    setStatusKey('status.noRomReady');
     return;
   }
 
   audio.playLaunch();
-  setStatus(`Inicializando Panda3DS para ${romName}...`);
+  setStatusKey('status.initializing', { name: romName });
 
   try {
     const result = await emulator.launchRom(romName, romBytes);
@@ -444,12 +502,12 @@ async function launchSelectedSlot() {
     }
 
     if (result.missingWasm) {
-      setStatus(`Aguardando núcleo compilado em public/wasm/Panda3DS.js (${result.reason})`);
+      setStatusKey('status.waitingCore', { reason: result.reason });
       showCoreNotice(result.reason, romName, romBytes);
     }
   } catch (err) {
     exitEmulatorView();
-    setStatus(`Falha ao iniciar ${romName}: ${err.message}`);
+    setStatusKey('status.launchFailed', { name: romName, error: err.message });
   }
 }
 
@@ -458,7 +516,7 @@ async function renderSaveList() {
   if (entries.length === 0) {
     const emptyMsg = document.createElement('p');
     emptyMsg.className = 'save-empty-msg';
-    emptyMsg.textContent = 'Nenhum arquivo de save encontrado em /user (IDBFS).';
+    emptyMsg.textContent = t('saves.emptyMsg');
     saveListBox.replaceChildren(emptyMsg);
     return;
   }
@@ -480,7 +538,7 @@ async function renderSaveList() {
     const dlBtn = document.createElement('button');
     dlBtn.type = 'button';
     dlBtn.className = 'utility-btn';
-    dlBtn.textContent = 'Baixar';
+    dlBtn.textContent = t('saves.downloadBtn');
     dlBtn.addEventListener('click', () => {
       void saveManager.exportSingleSave(entry.relPath);
     });
@@ -504,13 +562,13 @@ async function handleExportSaves() {
     const res = await saveManager.exportSaves();
     if (!res.exported) {
       audio.playEmpty();
-      setStatus('Não há arquivos em /user para exportar no momento.');
+      setStatusKey('status.noSavesToExport');
       return;
     }
     audio.playSelect();
-    setStatus(`Exportado ${res.count} arquivo(s) para ${res.fileName}.`);
+    setStatusKey('status.exportedSaves', { count: res.count, fileName: res.fileName });
   } catch (err) {
-    setStatus(`Erro ao exportar saves: ${err.message}`);
+    setStatusKey('status.exportError', { error: err.message });
   }
 }
 
@@ -519,13 +577,13 @@ async function handleImportSaveFile(file) {
   try {
     const count = await saveManager.importSaveFile(file);
     audio.playInsertCart();
-    setStatus(`Importado(s) ${count} arquivo(s) de save em /user e sincronizado no IDBFS.`);
+    setStatusKey('status.importedSaves', { count });
     if (saveDialog.open) {
       await renderSaveList();
     }
   } catch (err) {
     audio.playEmpty();
-    setStatus(`Erro ao importar save: ${err.message}`);
+    setStatusKey('status.importError', { error: err.message });
   }
 }
 
@@ -584,7 +642,7 @@ modalClearSaveBtn.addEventListener('click', async () => {
   await saveManager.clearAllSaves();
   audio.playSelect();
   await renderSaveList();
-  setStatus('Diretório /user no IDBFS limpo.');
+  setStatusKey('status.clearedUser');
 });
 
 closeSaveDialogBtn.addEventListener('click', () => saveDialog.close());
@@ -610,13 +668,13 @@ modalCopyPixBtn?.addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(cfg.pixKey);
     audio.playSelect();
-    modalCopyPixBtn.textContent = '✓ Pix Copiado!';
-    setStatus(`Chave Pix (${cfg.pixKey}) copiada para a área de transferência.`);
+    modalCopyPixBtn.textContent = t('supportDialog.pixCopied');
+    setStatusKey('status.pixCopied', { key: cfg.pixKey });
     setTimeout(() => {
-      modalCopyPixBtn.textContent = '❖ Copiar Pix';
+      modalCopyPixBtn.textContent = t('supportDialog.copyPix');
     }, 2600);
   } catch {
-    setStatus(`Chave Pix: ${cfg.pixKey}`);
+    setStatusKey('status.pixFallback', { key: cfg.pixKey });
   }
 });
 
@@ -655,14 +713,12 @@ if (!('closedBy' in HTMLDialogElement.prototype)) {
 motionToggleBtn.addEventListener('click', () => {
   const nextPaused = !cartridge.paused;
   cartridge.setPaused(nextPaused);
-  motionToggleBtn.textContent = nextPaused ? '▶' : '❚❚';
-  motionToggleBtn.setAttribute('aria-label', nextPaused ? 'Retomar rotação 3D' : 'Pausar rotação 3D');
+  syncMotionAndAudioButtons();
 });
 
 audioToggleBtn.addEventListener('click', () => {
   const muted = audio.toggleMute();
-  audioToggleBtn.textContent = muted ? '✕' : '♪';
-  audioToggleBtn.setAttribute('aria-label', muted ? 'Ativar efeitos sonoros' : 'Silenciar efeitos sonoros');
+  syncMotionAndAudioButtons();
   if (emulator.isRunning) {
     const enabled = !muted;
     if (chkEmuAudioEl) chkEmuAudioEl.checked = enabled;
@@ -701,8 +757,8 @@ function syncFullscreenUi() {
   consoleShellEl.classList.toggle('is-fullscreen', active);
   exitFullscreenBtn.hidden = !active;
   fullscreenBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-  fullscreenBtn.title = active ? 'Sair da tela cheia (Esc ou F)' : 'Tela cheia apenas telas (F)';
-  utilityFullscreenBtn.textContent = active ? '✕ Sair Tela Cheia' : '⛶ Tela Cheia (Telas)';
+  fullscreenBtn.title = active ? t('fullscreen.exitTitle') : t('fullscreen.enterTitle');
+  utilityFullscreenBtn.textContent = active ? t('fullscreen.utilityExit') : t('fullscreen.utilityEnter');
   utilityFullscreenBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
 }
 
@@ -756,11 +812,37 @@ exitFullscreenBtn.addEventListener('click', () => void exitFullscreenMode());
 // Unified Keyboard + Gamepad + Mouse Directional Input
 // ============================================================================
 
-const MOUSE_MODE_LABELS = {
-  motion: 'Movimento',
-  position: 'Livre',
-  off: 'Desligado',
+const MOUSE_MODE_KEYS = {
+  motion: 'mouseMode.motion',
+  position: 'mouseMode.position',
+  off: 'mouseMode.off',
 };
+
+function updateMouseModeUi(mode) {
+  lastMouseMode = mode;
+  const modeLabel = t(MOUSE_MODE_KEYS[mode] || 'mouseMode.motion');
+  mouseModeBtn.textContent = t('utility.mouseModeBtn', { mode: modeLabel });
+  selectMouseModeEl.value = mode;
+}
+
+function updateGamepadUi(gp) {
+  lastGamepadInfo = gp || null;
+  if (gp) {
+    const shortName = gp.id.replace(/\s*\([^)]*\)/g, '').slice(0, 34);
+    gamepadStatusPillEl.textContent = t('utility.gamepadConnected', { name: shortName });
+    gamepadStatusPillEl.classList.add('is-connected');
+    controlsGamepadInfoEl.textContent = t('controlsDialog.gamepadConnected', {
+      id: gp.id,
+      mapping: gp.mapping,
+    });
+    controlsGamepadInfoEl.classList.add('is-connected');
+  } else {
+    gamepadStatusPillEl.textContent = t('utility.gamepadDisconnected');
+    gamepadStatusPillEl.classList.remove('is-connected');
+    controlsGamepadInfoEl.textContent = t('controlsDialog.gamepadNone');
+    controlsGamepadInfoEl.classList.remove('is-connected');
+  }
+}
 
 function isAnyModalOpen() {
   return saveDialog.open || coreNoticeDialog.open || controlsDialog.open || Boolean(supportDialog?.open);
@@ -820,25 +902,8 @@ const inputController = createInputController({
   },
   onFullscreenToggle: toggleFullscreenMode,
   onExitFullscreen: () => void exitFullscreenMode(),
-  onMouseModeChange: (mode) => {
-    const label = MOUSE_MODE_LABELS[mode] || mode;
-    mouseModeBtn.textContent = `🖱 Direcional Mouse: ${label}`;
-    selectMouseModeEl.value = mode;
-  },
-  onGamepadChange: (gp) => {
-    if (gp) {
-      const shortName = gp.id.replace(/\s*\([^)]*\)/g, '').slice(0, 34);
-      gamepadStatusPillEl.textContent = `🎮 Controle: ${shortName}`;
-      gamepadStatusPillEl.classList.add('is-connected');
-      controlsGamepadInfoEl.textContent = `Conectado: ${gp.id} (${gp.mapping})`;
-      controlsGamepadInfoEl.classList.add('is-connected');
-    } else {
-      gamepadStatusPillEl.textContent = '🎮 Controle: Conecte um gamepad ou use o teclado';
-      gamepadStatusPillEl.classList.remove('is-connected');
-      controlsGamepadInfoEl.textContent = 'Nenhum controle conectado. Conecte um controle USB/Bluetooth (Xbox, PlayStation, Switch, 8BitDo) e pressione qualquer botão.';
-      controlsGamepadInfoEl.classList.remove('is-connected');
-    }
-  },
+  onMouseModeChange: updateMouseModeUi,
+  onGamepadChange: updateGamepadUi,
 });
 
 mouseModeBtn.addEventListener('click', () => {
@@ -939,6 +1004,11 @@ document.querySelectorAll('.face-btn').forEach((btn) => {
 // Bootstrap
 // ============================================================================
 
+initI18n();
+syncLocalizedSlotMeta();
+syncMotionAndAudioButtons();
+updateMouseModeUi(lastMouseMode);
+updateGamepadUi(lastGamepadInfo);
 updateTopBarIsolationBadge();
 startLiveClock();
 void initBatteryIndicator();
@@ -946,10 +1016,32 @@ initPerformancePreferences();
 selectSlot('demo', { impulse: false, sound: false });
 cartridge.start();
 inputController.start();
-initAdSense({
+adHandle = initAdSense({
   insElement: adsenseUnitEl,
   statusElement: adSlotNoteEl,
   containerElement: adBannerSlotEl,
   onOpenSupport: openSupportDialog,
 });
+
+onLangChange(() => {
+  syncLocalizedSlotMeta();
+  selectSlot(state.selectedSlotId, { impulse: false, sound: false });
+  syncFullscreenUi();
+  syncMotionAndAudioButtons();
+  updateTopBarIsolationBadge();
+  updateMouseModeUi(lastMouseMode);
+  updateGamepadUi(lastGamepadInfo);
+  updateBatteryAriaLabel();
+  if (saveDialog.open) {
+    void renderSaveList();
+  }
+  if (coreNoticeDialog.open && lastCoreNoticeArgs) {
+    renderCoreNotice(lastCoreNoticeArgs.reason, lastCoreNoticeArgs.romName, lastCoreNoticeArgs.romBytes);
+  }
+  if (lastStatusKey) {
+    setStatusKey(lastStatusKey, lastStatusVars);
+  }
+  adHandle?.refreshLanguage?.();
+});
+
 void preloadDemoRom();

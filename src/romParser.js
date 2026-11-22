@@ -3,6 +3,8 @@
  * entirely in the browser without external dependencies.
  */
 
+import { t } from './i18n.js';
+
 const TILE_ORDER = [
   0, 1, 8, 9, 2, 3, 10, 11,
   16, 17, 24, 25, 18, 19, 26, 27,
@@ -154,7 +156,7 @@ export function parseRomMetadata(fileName, bytes) {
     sizeBytes: bytes.byteLength,
     title: fallbackTitle,
     subtitle: `${(bytes.byteLength / 1024).toFixed(1)} KB • .${ext || 'rom'}`,
-    publisher: 'Homebrew / Backup do Usuário',
+    publisher: t('rom.defaultPublisher'),
     serial: deriveSerialFromName(fileName),
     iconCanvas: null,
     encrypted: false,

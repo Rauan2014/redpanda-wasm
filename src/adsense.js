@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 const PLACEHOLDER_CLIENT = 'ca-pub-XXXXXXXXXXXXXXXX';
 const PLACEHOLDER_SLOT = '0000000000';
 const DEFAULT_PIX_KEY = 'apoio@panda3dsweb.dev';
@@ -70,12 +72,11 @@ function renderSupportAndPermissiveBanner({ frameEl, insElement, statusElement, 
 
   const title = document.createElement('strong');
   title.className = 'support-banner-title';
-  title.textContent = 'Apoie o Panda3DS Web • Emulação ARM11 100% no Navegador';
+  title.textContent = t('ad.bannerTitle');
 
   const desc = document.createElement('p');
   desc.className = 'support-banner-desc';
-  desc.textContent =
-    'Projeto independente sem pop-ups invasivos. Apoie via Pix ou Ko-fi para manter o desenvolvimento WebAssembly (ou configure VITE_AADS_UNIT_ID / VITE_ADSTERRA_BANNER_URL).';
+  desc.textContent = t('ad.bannerDesc');
 
   copyWrap.append(title, desc);
 
@@ -85,22 +86,22 @@ function renderSupportAndPermissiveBanner({ frameEl, insElement, statusElement, 
   const pixBtn = document.createElement('button');
   pixBtn.type = 'button';
   pixBtn.className = 'support-cta-btn support-cta-pix';
-  pixBtn.textContent = '❖ Copiar Chave Pix';
+  pixBtn.textContent = t('ad.copyPixBtn');
   pixBtn.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(cfg.pixKey);
-      pixBtn.textContent = '✓ Pix Copiado!';
+      pixBtn.textContent = t('ad.pixCopiedBtn');
       if (statusElement) {
-        statusElement.textContent = `Chave Pix (${cfg.pixKey}) copiada para a área de transferência.`;
+        statusElement.textContent = t('status.pixCopied', { key: cfg.pixKey });
       }
       setTimeout(() => {
-        pixBtn.textContent = '❖ Copiar Chave Pix';
+        pixBtn.textContent = t('ad.copyPixBtn');
       }, 2800);
     } catch {
       if (typeof onOpenSupport === 'function') {
         onOpenSupport();
       } else if (statusElement) {
-        statusElement.textContent = `Chave Pix para apoio: ${cfg.pixKey}`;
+        statusElement.textContent = t('status.pixSupportFallback', { key: cfg.pixKey });
       }
     }
   });
@@ -108,7 +109,7 @@ function renderSupportAndPermissiveBanner({ frameEl, insElement, statusElement, 
   const modalBtn = document.createElement('button');
   modalBtn.type = 'button';
   modalBtn.className = 'support-cta-btn support-cta-secondary';
-  modalBtn.textContent = '❤ Ko-fi / Opções de Apoio';
+  modalBtn.textContent = t('ad.kofiSupportBtn');
   modalBtn.addEventListener('click', () => {
     if (typeof onOpenSupport === 'function') {
       onOpenSupport();
@@ -122,19 +123,18 @@ function renderSupportAndPermissiveBanner({ frameEl, insElement, statusElement, 
   frameEl.prepend(banner);
 
   if (statusElement) {
-    statusElement.textContent =
-      'Slot monetizado em modo Apoio Direto (Pix/Ko-fi) • Compatível com A-Ads, Adsterra/Monetag (Display Nativo) e Google AdSense.';
+    statusElement.textContent = t('ad.statusSupport');
   }
 }
 
 function renderAAdsBanner({ frameEl, insElement, statusElement, cfg }) {
   if (insElement) insElement.style.display = 'none';
-  if (!frameEl) return;
+  if (!frameEl) return null;
 
   const iframe = document.createElement('iframe');
   iframe.setAttribute('data-aa', cfg.aadsUnitId);
   iframe.src = `https://ad.a-ads.com/${encodeURIComponent(cfg.aadsUnitId)}?size=Adaptive`;
-  iframe.title = 'Publicidade A-Ads';
+  iframe.title = t('ad.aadsTitle');
   iframe.className = 'permissive-ad-iframe';
   iframe.setAttribute('credentialless', '');
   iframe.loading = 'lazy';
@@ -142,16 +142,17 @@ function renderAAdsBanner({ frameEl, insElement, statusElement, cfg }) {
 
   frameEl.prepend(iframe);
   if (statusElement) {
-    statusElement.textContent = `Publicidade A-Ads ativa (Unidade #${cfg.aadsUnitId} • Sem cookies invasivos / Compatível com COEP).`;
+    statusElement.textContent = t('ad.aadsStatus', { unitId: cfg.aadsUnitId });
   }
+  return iframe;
 }
 
 function renderCustomPermissiveBanner({ frameEl, insElement, statusElement, cfg }) {
   if (insElement) insElement.style.display = 'none';
-  if (!frameEl) return;
+  if (!frameEl) return null;
 
   const iframe = document.createElement('iframe');
-  iframe.title = 'Publicidade Display Nativo';
+  iframe.title = t('ad.customTitle');
   iframe.className = 'permissive-ad-iframe';
   iframe.setAttribute('credentialless', '');
   iframe.loading = 'lazy';
@@ -168,8 +169,9 @@ function renderCustomPermissiveBanner({ frameEl, insElement, statusElement, cfg 
 
   frameEl.prepend(iframe);
   if (statusElement) {
-    statusElement.textContent = 'Banner Display ativo (Adsterra / Monetag • Isolado sem Pop-unders).';
+    statusElement.textContent = t('ad.customStatus');
   }
+  return iframe;
 }
 
 /**
@@ -178,7 +180,7 @@ function renderCustomPermissiveBanner({ frameEl, insElement, statusElement, cfg 
  */
 export function initAdSense({ insElement, statusElement, containerElement, onOpenSupport }) {
   if (!insElement && !containerElement) {
-    return { configured: false, isolated: Boolean(window.crossOriginIsolated) };
+    return { configured: false, isolated: Boolean(window.crossOriginIsolated), refreshLanguage: () => {} };
   }
 
   const cfg = getAdSenseConfig();
@@ -192,20 +194,43 @@ export function initAdSense({ insElement, statusElement, containerElement, onOpe
 
   if (cfg.activeProvider === 'aads') {
     containerElement?.classList.remove('is-preview');
-    renderAAdsBanner({ frameEl, insElement, statusElement, cfg });
-    return { configured: true, provider: 'aads', isolated };
+    const iframe = renderAAdsBanner({ frameEl, insElement, statusElement, cfg });
+    return {
+      configured: true,
+      provider: 'aads',
+      isolated,
+      refreshLanguage: () => {
+        if (iframe) iframe.title = t('ad.aadsTitle');
+        if (statusElement) statusElement.textContent = t('ad.aadsStatus', { unitId: cfg.aadsUnitId });
+      },
+    };
   }
 
   if (cfg.activeProvider === 'adsterra') {
     containerElement?.classList.remove('is-preview');
-    renderCustomPermissiveBanner({ frameEl, insElement, statusElement, cfg });
-    return { configured: true, provider: 'adsterra', isolated };
+    const iframe = renderCustomPermissiveBanner({ frameEl, insElement, statusElement, cfg });
+    return {
+      configured: true,
+      provider: 'adsterra',
+      isolated,
+      refreshLanguage: () => {
+        if (iframe) iframe.title = t('ad.customTitle');
+        if (statusElement) statusElement.textContent = t('ad.customStatus');
+      },
+    };
   }
 
   if (cfg.activeProvider === 'support') {
     containerElement?.classList.add('is-preview');
     renderSupportAndPermissiveBanner({ frameEl, insElement, statusElement, cfg, onOpenSupport });
-    return { configured: false, provider: 'support', isolated };
+    return {
+      configured: false,
+      provider: 'support',
+      isolated,
+      refreshLanguage: () => {
+        renderSupportAndPermissiveBanner({ frameEl, insElement, statusElement, cfg, onOpenSupport });
+      },
+    };
   }
 
   // Google AdSense path (when VITE_ADSENSE_CLIENT and VITE_ADSENSE_SLOT are explicitly configured)
@@ -214,14 +239,16 @@ export function initAdSense({ insElement, statusElement, containerElement, onOpe
 
   const scriptId = 'google-adsense-script';
   let script = document.getElementById(scriptId);
+  let fallbackActive = false;
 
   const pushAd = () => {
     try {
       (window.adsbygoogle = window.adsbygoogle || []).push({});
       if (statusElement) {
-        statusElement.textContent = 'Publicidade Google AdSense ativa.';
+        statusElement.textContent = t('ad.adsenseStatus');
       }
     } catch {
+      fallbackActive = true;
       renderSupportAndPermissiveBanner({ frameEl, insElement, statusElement, cfg, onOpenSupport });
     }
   };
@@ -233,11 +260,23 @@ export function initAdSense({ insElement, statusElement, containerElement, onOpe
     script.crossOrigin = 'anonymous';
     script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(cfg.client)}`;
     script.addEventListener('error', () => {
+      fallbackActive = true;
       renderSupportAndPermissiveBanner({ frameEl, insElement, statusElement, cfg, onOpenSupport });
     });
     document.head.append(script);
   }
 
   pushAd();
-  return { configured: true, provider: 'adsense', isolated };
+  return {
+    configured: true,
+    provider: 'adsense',
+    isolated,
+    refreshLanguage: () => {
+      if (fallbackActive) {
+        renderSupportAndPermissiveBanner({ frameEl, insElement, statusElement, cfg, onOpenSupport });
+      } else if (statusElement) {
+        statusElement.textContent = t('ad.adsenseStatus');
+      }
+    },
+  };
 }

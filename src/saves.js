@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { t } from './i18n.js';
 
 const IDBFS_MOUNT = '/user';
 const IDBFS_DB_VERSION = 21;
@@ -236,7 +237,7 @@ export class SaveManager {
     }
 
     if (filesToWrite.length === 0) {
-      throw new Error('Nenhum arquivo de save válido encontrado no pacote.');
+      throw new Error(t('saves.noValidInPackage'));
     }
 
     const mod = this.#getModule?.();

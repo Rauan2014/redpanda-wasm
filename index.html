@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-i18n-title="index.pageTitle">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,15 +9,17 @@
 </head>
 <body>
   <main class="page-shell" id="page-shell">
-    <h1 class="visually-hidden">Emulador 3DS WebAssembly — Panda3DS HOME Menu</h1>
+    <h1 class="visually-hidden" data-i18n="index.srHeading">Emulador 3DS WebAssembly — Panda3DS HOME Menu</h1>
 
     <!-- Console Dual-Screen -->
-    <section class="n3ds-console" id="console-shell" aria-label="Console Dual-Screen 3DS">
+    <section class="n3ds-console" id="console-shell" data-i18n-aria-label="console.regionAria" aria-label="Console Dual-Screen 3DS">
       <button
         type="button"
         class="fullscreen-exit-btn"
         id="exit-fullscreen-btn"
         hidden
+        data-i18n="fullscreen.exitBtn"
+        data-i18n-aria-label="fullscreen.exitAria"
         aria-label="Sair da tela cheia"
       >
         ✕ Sair da Tela Cheia (Esc)
@@ -52,6 +54,8 @@
                     type="button"
                     class="status-icon-btn"
                     id="fullscreen-btn"
+                    data-i18n-aria-label="fullscreen.enterAria"
+                    data-i18n-title="fullscreen.enterTitle"
                     aria-label="Tela cheia apenas com as telas"
                     aria-pressed="false"
                     title="Tela cheia apenas telas (F)"
@@ -92,6 +96,7 @@
                   id="cartridge-canvas"
                   width="800"
                   height="480"
+                  data-i18n-aria-label="canvas.cartridgeAria"
                   aria-label="Banner 3D interativo do cartucho Nintendo 3DS"
                 ></canvas>
               </div>
@@ -109,6 +114,7 @@
                 width="400"
                 height="480"
                 tabindex="-1"
+                data-i18n-aria-label="canvas.topAria"
                 aria-label="Saída de vídeo da Tela Superior do Nintendo 3DS"
               ></canvas>
 
@@ -151,29 +157,29 @@
       <!-- Base Inferior do Console -->
       <div class="n3ds-bottom-deck">
         <!-- Gatilhos superiores L / ZL / ZR / R -->
-        <div class="shoulder-strip" role="group" aria-label="Botões de ombro L, ZL, ZR e R">
+        <div class="shoulder-strip" role="group" data-i18n-aria-label="controls.shoulderGroupAria" aria-label="Botões de ombro L, ZL, ZR e R">
           <div class="shoulder-pair">
-            <button type="button" class="shoulder-btn" id="btn-l" data-key="q" aria-label="Botão L">L</button>
-            <button type="button" class="shoulder-btn shoulder-btn-sub" id="btn-zl" data-key="1" aria-label="Botão ZL">ZL</button>
+            <button type="button" class="shoulder-btn" id="btn-l" data-key="q" data-i18n-aria-label="controls.btnLAria" aria-label="Botão L">L</button>
+            <button type="button" class="shoulder-btn shoulder-btn-sub" id="btn-zl" data-key="1" data-i18n-aria-label="controls.btnZLAria" aria-label="Botão ZL">ZL</button>
           </div>
           <div class="shoulder-pair">
-            <button type="button" class="shoulder-btn shoulder-btn-sub" id="btn-zr" data-key="0" aria-label="Botão ZR">ZR</button>
-            <button type="button" class="shoulder-btn" id="btn-r" data-key="p" aria-label="Botão R">R</button>
+            <button type="button" class="shoulder-btn shoulder-btn-sub" id="btn-zr" data-key="0" data-i18n-aria-label="controls.btnZRAria" aria-label="Botão ZR">ZR</button>
+            <button type="button" class="shoulder-btn" id="btn-r" data-key="p" data-i18n-aria-label="controls.btnRAria" aria-label="Botão R">R</button>
           </div>
         </div>
 
         <div class="bottom-controls-row">
           <!-- Controles Esquerdos: Circle Pad + D-Pad -->
           <div class="side-controls side-left">
-            <div class="circle-pad-well" id="circle-pad-well" title="Analógico Circle Pad — mova o mouse ou arraste">
+            <div class="circle-pad-well" id="circle-pad-well" data-i18n-title="controls.circlePadTitle" title="Analógico Circle Pad — mova o mouse ou arraste">
               <div class="circle-pad-thumb" id="circle-pad-thumb"></div>
             </div>
-            <div class="dpad" role="group" aria-label="Direcional D-Pad">
-              <button type="button" class="dpad-btn dpad-up" data-nav="up" data-key="ArrowUp" aria-label="Direcional Cima">▲</button>
-              <button type="button" class="dpad-btn dpad-left" data-nav="left" data-key="ArrowLeft" aria-label="Direcional Esquerda">◀</button>
+            <div class="dpad" role="group" data-i18n-aria-label="controls.dpadGroupAria" aria-label="Direcional D-Pad">
+              <button type="button" class="dpad-btn dpad-up" data-nav="up" data-key="ArrowUp" data-i18n-aria-label="controls.dpadUpAria" aria-label="Direcional Cima">▲</button>
+              <button type="button" class="dpad-btn dpad-left" data-nav="left" data-key="ArrowLeft" data-i18n-aria-label="controls.dpadLeftAria" aria-label="Direcional Esquerda">◀</button>
               <span class="dpad-center" aria-hidden="true"></span>
-              <button type="button" class="dpad-btn dpad-right" data-nav="right" data-key="ArrowRight" aria-label="Direcional Direita">▶</button>
-              <button type="button" class="dpad-btn dpad-down" data-nav="down" data-key="ArrowDown" aria-label="Direcional Baixo">▼</button>
+              <button type="button" class="dpad-btn dpad-right" data-nav="right" data-key="ArrowRight" data-i18n-aria-label="controls.dpadRightAria" aria-label="Direcional Direita">▶</button>
+              <button type="button" class="dpad-btn dpad-down" data-nav="down" data-key="ArrowDown" data-i18n-aria-label="controls.dpadDownAria" aria-label="Direcional Baixo">▼</button>
             </div>
           </div>
 
@@ -187,7 +193,7 @@
               </div>
 
               <!-- Grade de ícones HOME Menu -->
-              <div class="home-grid" role="listbox" aria-label="Aplicativos e slots do HOME Menu">
+              <div class="home-grid" role="listbox" data-i18n-aria-label="home.gridAria" aria-label="Aplicativos e slots do HOME Menu">
                 <button
                   type="button"
                   class="slot-card is-selected"
@@ -225,7 +231,7 @@
                   <span class="slot-icon-frame" id="slot-icon-saves">
                     <span class="glyph-save" aria-hidden="true">💾</span>
                   </span>
-                  <span class="slot-name">Saves</span>
+                  <span class="slot-name" data-i18n="home.slotSavesShort">Saves</span>
                 </button>
 
                 <button
@@ -236,13 +242,13 @@
                   aria-selected="false"
                 >
                   <span class="slot-icon-frame slot-icon-empty" aria-hidden="true"></span>
-                  <span class="slot-name">Vazio</span>
+                  <span class="slot-name" data-i18n="home.slotEmptyShort">Vazio</span>
                 </button>
               </div>
 
               <!-- Dock inferior -->
               <footer class="home-dock">
-                <button type="button" class="dock-btn dock-btn-secondary" id="dock-load-btn">
+                <button type="button" class="dock-btn dock-btn-secondary" id="dock-load-btn" data-i18n="home.dockLoad">
                   Carregar .3ds
                 </button>
                 <button type="button" class="dock-btn dock-btn-primary" id="dock-open-btn">
@@ -257,6 +263,7 @@
                 width="320"
                 height="240"
                 hidden
+                data-i18n-aria-label="canvas.bottomAria"
                 aria-label="Tela Tátil Inferior do Nintendo 3DS"
               ></canvas>
             </div>
@@ -264,11 +271,11 @@
 
           <!-- Controles Direitos: A B X Y -->
           <div class="side-controls side-right">
-            <div class="abxy-cluster" role="group" aria-label="Botões de ação A B X Y">
-              <button type="button" class="face-btn face-x" data-action="x" data-key="o" aria-label="Botão X">X</button>
-              <button type="button" class="face-btn face-y" data-action="y" data-key="i" aria-label="Botão Y">Y</button>
-              <button type="button" class="face-btn face-a" data-action="a" data-key="l" aria-label="Botão A">A</button>
-              <button type="button" class="face-btn face-b" data-action="b" data-key="k" aria-label="Botão B">B</button>
+            <div class="abxy-cluster" role="group" data-i18n-aria-label="controls.abxyGroupAria" aria-label="Botões de ação A B X Y">
+              <button type="button" class="face-btn face-x" data-action="x" data-key="o" data-i18n-aria-label="controls.btnXAria" aria-label="Botão X">X</button>
+              <button type="button" class="face-btn face-y" data-action="y" data-key="i" data-i18n-aria-label="controls.btnYAria" aria-label="Botão Y">Y</button>
+              <button type="button" class="face-btn face-a" data-action="a" data-key="l" data-i18n-aria-label="controls.btnAAria" aria-label="Botão A">A</button>
+              <button type="button" class="face-btn face-b" data-action="b" data-key="k" data-i18n-aria-label="controls.btnBAria" aria-label="Botão B">B</button>
             </div>
             <div class="power-well" aria-hidden="true">
               <span class="power-dot"></span>
@@ -287,47 +294,51 @@
     </section>
 
     <!-- Barra discreta de controles, saves e diagnóstico abaixo do console -->
-    <section class="utility-bar" aria-label="Controles, saves e status do sistema">
+    <section class="utility-bar" data-i18n-aria-label="utility.regionAria" aria-label="Controles, saves e status do sistema">
       <div class="utility-actions">
-        <button type="button" class="utility-btn utility-btn-accent" id="utility-fullscreen-btn">
+        <div class="lang-switcher" role="group" data-i18n-aria-label="lang.groupAria" aria-label="Seletor de idioma">
+          <button type="button" class="lang-btn" data-lang-btn="pt" lang="pt-BR" aria-pressed="true">PT</button>
+          <button type="button" class="lang-btn" data-lang-btn="en" lang="en" aria-pressed="false">EN</button>
+        </div>
+        <button type="button" class="utility-btn utility-btn-accent" id="utility-fullscreen-btn" data-i18n="fullscreen.utilityEnter">
           ⛶ Tela Cheia (Telas)
         </button>
         <button type="button" class="utility-btn" id="mouse-mode-btn">
           🖱 Direcional Mouse: Movimento
         </button>
-        <button type="button" class="utility-btn" id="open-controls-modal-btn">
+        <button type="button" class="utility-btn" id="open-controls-modal-btn" data-i18n="utility.controlsBtn">
           🎮 Controle / Teclado
         </button>
-        <button type="button" class="utility-btn" id="export-save-btn">
+        <button type="button" class="utility-btn" id="export-save-btn" data-i18n="utility.exportSaveBtn">
           Exportar Save
         </button>
-        <button type="button" class="utility-btn" id="import-save-btn">
+        <button type="button" class="utility-btn" id="import-save-btn" data-i18n="utility.importSaveBtn">
           Importar Save
         </button>
-        <button type="button" class="utility-btn" id="open-saves-modal-btn">
+        <button type="button" class="utility-btn" id="open-saves-modal-btn" data-i18n="utility.manageUserBtn">
           Gerenciar /user
         </button>
-        <button type="button" class="utility-btn utility-btn-support" id="open-support-modal-btn">
+        <button type="button" class="utility-btn utility-btn-support" id="open-support-modal-btn" data-i18n="utility.supportBtn">
           ❤ Apoiar (Pix / Ko-fi)
         </button>
       </div>
 
       <div class="utility-telemetry">
-        <span class="gamepad-pill" id="gamepad-status-pill" aria-live="polite">
+        <span class="gamepad-pill" id="gamepad-status-pill" aria-live="polite" data-i18n="utility.gamepadDisconnected">
           🎮 Controle: Conecte um gamepad ou use o teclado
         </span>
       </div>
 
-      <p class="utility-status" id="system-status" aria-live="polite">
+      <p class="utility-status" id="system-status" aria-live="polite" data-i18n="utility.statusInitial">
         Verificando isolamento de origem e ROM demo...
       </p>
     </section>
 
     <!-- Espaço de publicidade e apoio ao projeto (com margem de segurança contra cliques acidentais e oculto em Tela Cheia) -->
-    <aside class="ad-banner-slot" id="ad-banner-slot" aria-label="Publicidade e apoio ao projeto">
+    <aside class="ad-banner-slot" id="ad-banner-slot" data-i18n-aria-label="ad.slotAria" aria-label="Publicidade e apoio ao projeto">
       <div class="ad-slot-header">
-        <span class="ad-badge">PUBLICIDADE / APOIO AO PROJETO</span>
-        <span class="ad-policy-tag">Sem Pop-unders • Execução 100% Local</span>
+        <span class="ad-badge" data-i18n="ad.badge">PUBLICIDADE / APOIO AO PROJETO</span>
+        <span class="ad-policy-tag" data-i18n="ad.policyTag">Sem Pop-unders • Execução 100% Local</span>
       </div>
       <div class="ad-slot-frame">
         <ins
@@ -344,17 +355,17 @@
     </aside>
 
     <!-- Documentação Técnica, Requisitos, FAQ e Aviso Legal (Conformidade Webmaster & Propriedade Intelectual) -->
-    <section class="doc-section" id="documentacao" aria-label="Documentação técnica, requisitos, perguntas frequentes e aviso legal">
+    <section class="doc-section" id="documentacao" data-i18n-aria-label="doc.sectionAria" aria-label="Documentação técnica, requisitos, perguntas frequentes e aviso legal">
       <div class="doc-grid">
         <article class="doc-card">
-          <h2>Sobre o Panda3DS Web (Emulação ARM11 em WebAssembly)</h2>
-          <p>
+          <h2 data-i18n="doc.aboutTitle">Sobre o Panda3DS Web (Emulação ARM11 em WebAssembly)</h2>
+          <p data-i18n-html="doc.aboutP1Html">
             O <strong>Panda3DS Web</strong> é uma plataforma educacional e experimental de código aberto que porta o emulador
             Panda3DS para execução direta no navegador utilizando <strong>WebAssembly (WASM)</strong>, renderização gráfica acelerada
             por hardware via <strong>WebGL2 (OpenGL ES 3.0)</strong>, síntese de áudio <strong>Web Audio DSP</strong> e sistema de
             arquivos persistente local com <code>IndexedDB (IDBFS)</code>.
           </p>
-          <p>
+          <p data-i18n-html="doc.aboutP2Html">
             A interface reproduz a experiência de navegação em duas telas (proporções nativas de <code>400×240</code> na tela superior
             e <code>320×240</code> na tela tátil inferior) e traz pré-instalado exclusivamente o jogo homebrew open-source
             <strong>Block Blast</strong> (distribuído no formato <code>.3dsx</code> sob licença permissiva Zlib) para demonstração imediata.
@@ -362,21 +373,21 @@
         </article>
 
         <article class="doc-card">
-          <h2>Requisitos de Sistema e Guia Rápido de Uso</h2>
+          <h2 data-i18n="doc.reqTitle">Requisitos de Sistema e Guia Rápido de Uso</h2>
           <ul class="doc-list">
-            <li>
+            <li data-i18n-html="doc.req1Html">
               <strong>Navegadores Compatíveis:</strong> Google Chrome 110+, Microsoft Edge 110+, Mozilla Firefox 115+ ou Safari 16.4+
               com aceleração gráfica WebGL2 e suporte a WebAssembly multithread.
             </li>
-            <li>
+            <li data-i18n-html="doc.req2Html">
               <strong>Isolamento de Origem (COOP/COEP):</strong> O indicador <code>SAB OK</code> na barra superior do console confirma que
               <code>SharedArrayBuffer</code> está ativo para desempenho máximo do interpretador ARM11.
             </li>
-            <li>
+            <li data-i18n-html="doc.req3Html">
               <strong>Formatos Aceitos Localmente:</strong> Aplicações homebrew (<code>.3dsx</code>) e backups pessoais descriptografados
               (<code>.3ds</code>, <code>.cci</code>, <code>.cxi</code>) carregados diretamente do armazenamento do seu dispositivo.
             </li>
-            <li>
+            <li data-i18n-html="doc.req4Html">
               <strong>Gerenciamento de Saves:</strong> O diretório virtual <code>/user</code> salva o progresso automaticamente no
               <code>IndexedDB</code> a cada retorno ao HOME Menu, permitindo exportar e importar backups completos em <code>.zip</code>.
             </li>
@@ -386,12 +397,12 @@
 
       <!-- Acordeão Nativo de Perguntas Frequentes (FAQ) -->
       <section class="doc-card accordion" id="faq-section" aria-labelledby="faq-heading">
-        <h2 id="faq-heading">Perguntas Frequentes (FAQ)</h2>
+        <h2 id="faq-heading" data-i18n="faq.heading">Perguntas Frequentes (FAQ)</h2>
 
         <details open>
-          <summary>Os arquivos selecionados no meu computador ou celular são enviados para algum servidor?</summary>
+          <summary data-i18n="faq.q1Summary">Os arquivos selecionados no meu computador ou celular são enviados para algum servidor?</summary>
           <div class="accordion-body">
-            <p>
+            <p data-i18n-html="faq.q1AnswerHtml">
               <strong>Não.</strong> Toda a leitura de pacotes <code>.3dsx</code>, <code>.3ds</code>, <code>.cci</code>, <code>.cxi</code> e
               arquivos de salvamento ocorre 100% localmente na memória RAM do seu navegador através da <em>Web File API</em> e do sistema
               de arquivos virtual do Emscripten (<code>MEMFS</code> / <code>IDBFS</code>). Nenhum binário de jogo é transmitido pela rede.
@@ -400,9 +411,9 @@
         </details>
 
         <details>
-          <summary>Por que arquivos criptografados não abrem no emulador?</summary>
+          <summary data-i18n="faq.q2Summary">Por que arquivos criptografados não abrem no emulador?</summary>
           <div class="accordion-body">
-            <p>
+            <p data-i18n-html="faq.q2AnswerHtml">
               Em respeito às leis de propriedade intelectual e direitos autorais (DMCA / Lei nº 9.610/1998), o Panda3DS Web
               <strong>não inclui chaves criptográficas proprietárias (AES keys), BIOS ou arquivos de firmware de sistema</strong>.
               O núcleo executa apenas aplicações homebrew de código aberto (<code>.3dsx</code>) ou dumps pessoais previamente
@@ -412,9 +423,9 @@
         </details>
 
         <details>
-          <summary>Como melhorar a performance e a taxa de quadros (FPS) no navegador?</summary>
+          <summary data-i18n="faq.q3Summary">Como melhorar a performance e a taxa de quadros (FPS) no navegador?</summary>
           <div class="accordion-body">
-            <p>
+            <p data-i18n-html="faq.q3AnswerHtml">
               Clique no botão <strong>Controle / Teclado</strong> na barra utilitária e ajuste a opção <strong>Clock ARM11</strong> para
               <code>75% (Otimizado)</code> ou <code>50% (Modo Rápido — Jogos 2D)</code>. Isso reduz a quantidade de ciclos de CPU emulados por
               quadro de vídeo, aumentando a fluidez da renderização WebGL2 em notebooks e dispositivos móveis.
@@ -423,9 +434,9 @@
         </details>
 
         <details>
-          <summary>Como conectar controles Bluetooth/USB ou usar o mouse como analógico?</summary>
+          <summary data-i18n="faq.q4Summary">Como conectar controles Bluetooth/USB ou usar o mouse como analógico?</summary>
           <div class="accordion-body">
-            <p>
+            <p data-i18n-html="faq.q4AnswerHtml">
               Basta conectar qualquer controle compatível (Xbox, PlayStation DualShock/DualSense, Switch Pro Controller ou 8BitDo) e
               pressionar um botão para ativar a <em>Web Gamepad API</em>. Se preferir jogar no mouse e teclado, o botão
               <strong>Direcional Mouse</strong> permite usar o movimento do cursor para controlar o Circle Pad analógico enquanto clica
@@ -437,15 +448,15 @@
 
       <!-- Aviso Legal e Declaração de Propriedade Intelectual (Disclaimer) -->
       <article class="doc-card legal-disclaimer-card" id="aviso-legal">
-        <h2>Aviso Legal e Propriedade Intelectual (Disclaimer)</h2>
-        <p>
+        <h2 data-i18n="legal.title">Aviso Legal e Propriedade Intelectual (Disclaimer)</h2>
+        <p data-i18n-html="legal.p1Html">
           <strong>1. Declaração de Não Afiliação e Marcas Registradas:</strong> Este projeto e este website são iniciativas independentes
           de estudo de arquitetura de computadores e compilação WebAssembly, <strong>não possuindo qualquer vínculo, afiliação, patrocínio,
           licenciamento ou endosso da Nintendo Co., Ltd.</strong> ou de suas subsidiárias. As denominações "Nintendo" e "3DS" são marcas
           registradas de seus respectivos titulares e são citadas neste site exclusivamente em caráter descritivo e informativo de
           interoperabilidade técnica.
         </p>
-        <p>
+        <p data-i18n-html="legal.p2Html">
           <strong>2. Política Estrita Contra Pirataria (Zero ROMs Comerciais):</strong> Este software <strong>não inclui, não hospeda,
           não distribui e não fornece links ou incentivos para download</strong> de ROMs comerciais, ISOs, imagens de cartuchos protegidos,
           BIOS, NAND, firmwares ou chaves de criptografia. O único arquivo executável distribuído com a página é a demonstração homebrew
@@ -456,15 +467,15 @@
     </section>
 
     <!-- Rodapé Institucional e Legal Visível (LGPD / GDPR / Cláusula 10) -->
-    <footer class="site-footer" aria-label="Rodapé institucional e links legais">
-      <nav class="footer-nav" aria-label="Navegação legal e institucional">
-        <a href="/sobre.html">Sobre &amp; Guia Completo</a>
-        <a href="/sobre.html#privacidade">Política de Privacidade &amp; Cookies</a>
-        <a href="/sobre.html#termos">Termos de Uso</a>
-        <a href="/sobre.html#contato">Contato &amp; DMCA</a>
-        <button type="button" class="footer-link-btn" id="footer-support-btn">❤ Apoiar Projeto (Pix / Ko-fi)</button>
+    <footer class="site-footer" data-i18n-aria-label="footer.aria" aria-label="Rodapé institucional e links legais">
+      <nav class="footer-nav" data-i18n-aria-label="footer.navAria" aria-label="Navegação legal e institucional">
+        <a href="/sobre.html" data-i18n="footer.aboutLink">Sobre &amp; Guia Completo</a>
+        <a href="/sobre.html#privacidade" data-i18n="footer.privacyLink">Política de Privacidade &amp; Cookies</a>
+        <a href="/sobre.html#termos" data-i18n="footer.termsLink">Termos de Uso</a>
+        <a href="/sobre.html#contato" data-i18n="footer.contactLink">Contato &amp; DMCA</a>
+        <button type="button" class="footer-link-btn" id="footer-support-btn" data-i18n="footer.supportBtn">❤ Apoiar Projeto (Pix / Ko-fi)</button>
       </nav>
-      <p class="footer-copy">
+      <p class="footer-copy" data-i18n="footer.copy">
         Panda3DS Web — Emulação educacional client-side em WebAssembly (GPLv3 / Zlib Demo). Não afiliado à Nintendo Co., Ltd.
       </p>
     </footer>
@@ -488,23 +499,23 @@
     <!-- Modal nativo: Gerenciador de Saves (/user & IDBFS) -->
     <dialog id="save-dialog" class="n3ds-dialog" closedby="any" aria-labelledby="save-dialog-title">
       <div class="dialog-header">
-        <h2 id="save-dialog-title">Gerenciador de Saves (/user • IDBFS)</h2>
-        <button type="button" class="dialog-close-btn" id="close-save-dialog-btn" aria-label="Fechar gerenciador de saves">✕</button>
+        <h2 id="save-dialog-title" data-i18n="saveDialog.title">Gerenciador de Saves (/user • IDBFS)</h2>
+        <button type="button" class="dialog-close-btn" id="close-save-dialog-btn" data-i18n-aria-label="saveDialog.closeAria" aria-label="Fechar gerenciador de saves">✕</button>
       </div>
       <div class="dialog-body">
-        <p class="dialog-desc">
+        <p class="dialog-desc" data-i18n-html="saveDialog.descHtml">
           Arquivos persistidos em <code>/user</code> no IndexedDB (<code>IDBFS</code>) são restaurados automaticamente ao iniciar uma ROM.
         </p>
         <div class="save-list-box" id="save-list-box">
-          <p class="save-empty-msg">Carregando saves...</p>
+          <p class="save-empty-msg" data-i18n="saves.loadingMsg">Carregando saves...</p>
         </div>
       </div>
       <div class="dialog-footer">
-        <button type="button" class="utility-btn" id="modal-import-save-btn">Importar (.zip / .sav)</button>
-        <button type="button" class="utility-btn" id="modal-export-save-btn">Exportar Tudo (.zip)</button>
-        <button type="button" class="utility-btn utility-btn-danger" id="modal-clear-save-btn">Limpar /user</button>
+        <button type="button" class="utility-btn" id="modal-import-save-btn" data-i18n="saveDialog.importBtn">Importar (.zip / .sav)</button>
+        <button type="button" class="utility-btn" id="modal-export-save-btn" data-i18n="saveDialog.exportBtn">Exportar Tudo (.zip)</button>
+        <button type="button" class="utility-btn utility-btn-danger" id="modal-clear-save-btn" data-i18n="saveDialog.clearBtn">Limpar /user</button>
         <form method="dialog">
-          <button type="submit" class="dock-btn dock-btn-primary" autofocus>Fechar</button>
+          <button type="submit" class="dock-btn dock-btn-primary" data-i18n="saveDialog.closeBtn" autofocus>Fechar</button>
         </form>
       </div>
     </dialog>
@@ -512,8 +523,8 @@
     <!-- Modal nativo: Aviso de núcleo WebAssembly ausente / status do build -->
     <dialog id="core-notice-dialog" class="n3ds-dialog" closedby="any" aria-labelledby="core-notice-title">
       <div class="dialog-header">
-        <h2 id="core-notice-title">Núcleo WebAssembly Panda3DS</h2>
-        <button type="button" class="dialog-close-btn" id="close-core-dialog-btn" aria-label="Fechar aviso">✕</button>
+        <h2 id="core-notice-title" data-i18n="coreNotice.title">Núcleo WebAssembly Panda3DS</h2>
+        <button type="button" class="dialog-close-btn" id="close-core-dialog-btn" data-i18n-aria-label="coreNotice.closeAria" aria-label="Fechar aviso">✕</button>
       </div>
       <div class="dialog-body">
         <p class="dialog-desc" id="core-notice-message"></p>
@@ -521,7 +532,7 @@
       </div>
       <div class="dialog-footer">
         <form method="dialog">
-          <button type="submit" class="dock-btn dock-btn-primary" autofocus>Entendi</button>
+          <button type="submit" class="dock-btn dock-btn-primary" data-i18n="coreNotice.confirmBtn" autofocus>Entendi</button>
         </form>
       </div>
     </dialog>
@@ -529,99 +540,99 @@
     <!-- Modal nativo: Configuração de Controle, Teclado e Mouse Direcional -->
     <dialog id="controls-dialog" class="n3ds-dialog" closedby="any" aria-labelledby="controls-dialog-title">
       <div class="dialog-header">
-        <h2 id="controls-dialog-title">Controle, Teclado &amp; Direcional com Mouse</h2>
-        <button type="button" class="dialog-close-btn" id="close-controls-dialog-btn" aria-label="Fechar configuração de controles">✕</button>
+        <h2 id="controls-dialog-title" data-i18n="controlsDialog.title">Controle, Teclado &amp; Direcional com Mouse</h2>
+        <button type="button" class="dialog-close-btn" id="close-controls-dialog-btn" data-i18n-aria-label="controlsDialog.closeAria" aria-label="Fechar configuração de controles">✕</button>
       </div>
       <div class="dialog-body">
-        <div class="controls-status-box" id="controls-gamepad-info">
+        <div class="controls-status-box" id="controls-gamepad-info" data-i18n="controlsDialog.gamepadNone">
           Nenhum controle conectado. Conecte um controle USB/Bluetooth (Xbox, PlayStation, Switch, 8BitDo) e pressione qualquer botão.
         </div>
 
         <div class="controls-options-grid">
           <label class="control-field" for="select-mouse-mode">
-            <span>Direcional com Mouse (Circle Pad)</span>
+            <span data-i18n="controlsDialog.mouseModeLabel">Direcional com Mouse (Circle Pad)</span>
             <select id="select-mouse-mode">
-              <option value="motion">Movimento do Mouse (Auto-Centro)</option>
-              <option value="position">Posição Livre (Analógico Contínuo)</option>
-              <option value="off">Desligado (Somente Clique/Arraste)</option>
+              <option value="motion" data-i18n="controlsDialog.mouseModeMotion">Movimento do Mouse (Auto-Centro)</option>
+              <option value="position" data-i18n="controlsDialog.mouseModePosition">Posição Livre (Analógico Contínuo)</option>
+              <option value="off" data-i18n="controlsDialog.mouseModeOff">Desligado (Somente Clique/Arraste)</option>
             </select>
           </label>
 
           <label class="control-field" for="select-gamepad-layout">
-            <span>Layout dos botões A / B / X / Y</span>
+            <span data-i18n="controlsDialog.gamepadLayoutLabel">Layout dos botões A / B / X / Y</span>
             <select id="select-gamepad-layout">
-              <option value="xbox">Xbox / PlayStation (Botão Inferior = A)</option>
-              <option value="nintendo">Posição Nintendo (Botão Direito = A)</option>
+              <option value="xbox" data-i18n="controlsDialog.gamepadLayoutXbox">Xbox / PlayStation (Botão Inferior = A)</option>
+              <option value="nintendo" data-i18n="controlsDialog.gamepadLayoutNintendo">Posição Nintendo (Botão Direito = A)</option>
             </select>
           </label>
 
           <label class="control-check" for="chk-mouse-mirror-dpad">
             <input type="checkbox" id="chk-mouse-mirror-dpad" checked>
-            <span>Espelhar movimento do mouse no D-Pad (jogos 2D/homebrew)</span>
+            <span data-i18n="controlsDialog.mouseMirrorDpad">Espelhar movimento do mouse no D-Pad (jogos 2D/homebrew)</span>
           </label>
 
           <label class="control-field" for="select-cpu-clock">
-            <span>Clock ARM11 (Performance / FPS)</span>
+            <span data-i18n="controlsDialog.cpuClockLabel">Clock ARM11 (Performance / FPS)</span>
             <select id="select-cpu-clock">
-              <option value="100">100% (Padrão)</option>
-              <option value="75">75% (Otimizado)</option>
-              <option value="50">50% (Modo Rápido — Jogos 2D)</option>
-              <option value="35">35% (Ultra)</option>
+              <option value="100" data-i18n="controlsDialog.cpuClock100">100% (Padrão)</option>
+              <option value="75" data-i18n="controlsDialog.cpuClock75">75% (Otimizado)</option>
+              <option value="50" data-i18n="controlsDialog.cpuClock50">50% (Modo Rápido — Jogos 2D)</option>
+              <option value="35" data-i18n="controlsDialog.cpuClock35">35% (Ultra)</option>
             </select>
           </label>
 
           <label class="control-check" for="chk-emu-audio">
             <input type="checkbox" id="chk-emu-audio" checked>
-            <span>Ativar áudio do emulador (DSP)</span>
+            <span data-i18n="controlsDialog.enableAudio">Ativar áudio do emulador (DSP)</span>
           </label>
         </div>
 
         <table class="controls-map-table">
-          <caption>Mapeamento de teclas e botões</caption>
+          <caption data-i18n="controlsDialog.tableCaption">Mapeamento de teclas e botões</caption>
           <thead>
             <tr>
-              <th scope="col">Console 3DS</th>
-              <th scope="col">Teclado</th>
-              <th scope="col">Gamepad / Mouse</th>
+              <th scope="col" data-i18n="controlsDialog.thConsole">Console 3DS</th>
+              <th scope="col" data-i18n="controlsDialog.thKeyboard">Teclado</th>
+              <th scope="col" data-i18n="controlsDialog.thGamepadMouse">Gamepad / Mouse</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <th scope="row">Circle Pad (Analógico)</th>
+              <th scope="row" data-i18n="controlsDialog.rowCirclePad">Circle Pad (Analógico)</th>
               <td><code>W A S D</code></td>
-              <td>Analógico Esq. ou Movimento do Mouse</td>
+              <td data-i18n="controlsDialog.rowCirclePadGp">Analógico Esq. ou Movimento do Mouse</td>
             </tr>
             <tr>
-              <th scope="row">D-Pad (Cruzeta)</th>
-              <td><code>Setas ↑ ↓ ← →</code></td>
-              <td>D-Pad do Controle</td>
+              <th scope="row" data-i18n="controlsDialog.rowDpad">D-Pad (Cruzeta)</th>
+              <td data-i18n-html="controlsDialog.rowDpadKeysHtml"><code>Setas ↑ ↓ ← →</code></td>
+              <td data-i18n="controlsDialog.rowDpadGp">D-Pad do Controle</td>
             </tr>
             <tr>
               <th scope="row">A / B / X / Y</th>
-              <td><code>L K O I</code> ou <code>X Z V C</code></td>
-              <td>Botões frontais (ou clique no console)</td>
+              <td data-i18n-html="controlsDialog.rowAbxyKeysHtml"><code>L K O I</code> ou <code>X Z V C</code></td>
+              <td data-i18n="controlsDialog.rowAbxyGp">Botões frontais (ou clique no console)</td>
             </tr>
             <tr>
-              <th scope="row">L / R e ZL / ZR</th>
-              <td><code>Q P</code> e <code>1 0</code></td>
+              <th scope="row" data-i18n="controlsDialog.rowShoulders">L / R e ZL / ZR</th>
+              <td data-i18n-html="controlsDialog.rowShouldersKeysHtml"><code>Q P</code> e <code>1 0</code></td>
               <td>LB / RB e LT / RT</td>
             </tr>
             <tr>
               <th scope="row">START / SELECT / HOME</th>
               <td><code>Enter</code> / <code>Backspace</code> / <code>H</code></td>
-              <td>Menu / View / Guide (Home)</td>
+              <td data-i18n="controlsDialog.rowStartGp">Menu / View / Guide (Home)</td>
             </tr>
             <tr>
-              <th scope="row">Tela Cheia / Modo Mouse</th>
+              <th scope="row" data-i18n="controlsDialog.rowFullscreen">Tela Cheia / Modo Mouse</th>
               <td><code>F</code> / <code>M</code></td>
-              <td>Exibe apenas a tela maior e a menor</td>
+              <td data-i18n="controlsDialog.rowFullscreenDesc">Exibe apenas a tela maior e a menor</td>
             </tr>
           </tbody>
         </table>
       </div>
       <div class="dialog-footer">
         <form method="dialog">
-          <button type="submit" class="dock-btn dock-btn-primary" autofocus>Concluir</button>
+          <button type="submit" class="dock-btn dock-btn-primary" data-i18n="controlsDialog.doneBtn" autofocus>Concluir</button>
         </form>
       </div>
     </dialog>
@@ -629,11 +640,11 @@
     <!-- Modal nativo: Apoio Direto (Pix / Ko-fi / GitHub Sponsors) & Redes de Anúncio -->
     <dialog id="support-dialog" class="n3ds-dialog" closedby="any" aria-labelledby="support-dialog-title">
       <div class="dialog-header">
-        <h2 id="support-dialog-title">❤ Apoiar o Projeto (Pix, Ko-fi &amp; Publicidade Limpa)</h2>
-        <button type="button" class="dialog-close-btn" id="close-support-dialog-btn" aria-label="Fechar modal de apoio">✕</button>
+        <h2 id="support-dialog-title" data-i18n="supportDialog.title">❤ Apoiar o Projeto (Pix, Ko-fi &amp; Publicidade Limpa)</h2>
+        <button type="button" class="dialog-close-btn" id="close-support-dialog-btn" data-i18n-aria-label="supportDialog.closeAria" aria-label="Fechar modal de apoio">✕</button>
       </div>
       <div class="dialog-body">
-        <p class="dialog-desc">
+        <p class="dialog-desc" data-i18n-html="supportDialog.descHtml">
           O <strong>Panda3DS Web</strong> é mantido sem pop-unders ou anúncios intrusivos que atrapalhem os controles do emulador.
           Você pode apoiar diretamente o projeto via Pix ou plataformas de financiamento coletivo:
         </p>
@@ -641,10 +652,10 @@
         <div class="support-box">
           <div class="support-row">
             <div class="support-key-meta">
-              <span class="support-label">Chave Pix (E-mail / Aleatória)</span>
+              <span class="support-label" data-i18n="supportDialog.pixLabel">Chave Pix (E-mail / Aleatória)</span>
               <code id="modal-pix-key-value">apoio@panda3dsweb.dev</code>
             </div>
-            <button type="button" class="dock-btn dock-btn-primary" id="modal-copy-pix-btn">❖ Copiar Pix</button>
+            <button type="button" class="dock-btn dock-btn-primary" id="modal-copy-pix-btn" data-i18n="supportDialog.copyPix">❖ Copiar Pix</button>
           </div>
 
           <div class="support-links-grid">
@@ -654,6 +665,7 @@
               rel="noopener noreferrer"
               class="utility-btn support-ext-link"
               id="modal-kofi-link"
+              data-i18n="supportDialog.kofiLink"
             >
               ☕ Apoiar no Ko-fi
             </a>
@@ -663,6 +675,7 @@
               rel="noopener noreferrer"
               class="utility-btn support-ext-link"
               id="modal-github-link"
+              data-i18n="supportDialog.githubLink"
             >
               ★ Repositório Upstream Panda3DS
             </a>
@@ -670,16 +683,16 @@
         </div>
 
         <div class="core-checklist">
-          <p class="dialog-desc"><strong>Configuração de Monetização (Variáveis de Ambiente):</strong></p>
-          <p class="dialog-desc">• <code>VITE_PIX_KEY</code> e <code>VITE_KOFI_URL</code>: Define sua chave Pix e link Ko-fi/Sponsors.</p>
-          <p class="dialog-desc">• <code>VITE_AADS_UNIT_ID</code>: Ativa banner A-Ads (aprovação imediata, pagamento diário em Cripto, compatível com COEP).</p>
-          <p class="dialog-desc">• <code>VITE_ADSTERRA_BANNER_URL</code>: Ativa banner Display Nativo (Adsterra / Monetag sem pop-under).</p>
-          <p class="dialog-desc">• <code>VITE_ADSENSE_CLIENT</code> + <code>VITE_ADSENSE_SLOT</code>: Ativa Google AdSense quando desejado.</p>
+          <p class="dialog-desc"><strong data-i18n="supportDialog.monetizationHeading">Configuração de Monetização (Variáveis de Ambiente):</strong></p>
+          <p class="dialog-desc" data-i18n-html="supportDialog.envPixHtml">• <code>VITE_PIX_KEY</code> e <code>VITE_KOFI_URL</code>: Define sua chave Pix e link Ko-fi/Sponsors.</p>
+          <p class="dialog-desc" data-i18n-html="supportDialog.envAadsHtml">• <code>VITE_AADS_UNIT_ID</code>: Ativa banner A-Ads (aprovação imediata, pagamento diário em Cripto, compatível com COEP).</p>
+          <p class="dialog-desc" data-i18n-html="supportDialog.envAdsterraHtml">• <code>VITE_ADSTERRA_BANNER_URL</code>: Ativa banner Display Nativo (Adsterra / Monetag sem pop-under).</p>
+          <p class="dialog-desc" data-i18n-html="supportDialog.envAdsenseHtml">• <code>VITE_ADSENSE_CLIENT</code> + <code>VITE_ADSENSE_SLOT</code>: Ativa Google AdSense quando desejado.</p>
         </div>
       </div>
       <div class="dialog-footer">
         <form method="dialog">
-          <button type="submit" class="dock-btn dock-btn-primary" autofocus>Fechar</button>
+          <button type="submit" class="dock-btn dock-btn-primary" data-i18n="supportDialog.closeBtn" autofocus>Fechar</button>
         </form>
       </div>
     </dialog>
