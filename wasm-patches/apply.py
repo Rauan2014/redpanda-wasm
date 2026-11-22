@@ -2874,9 +2874,22 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\tu64 cbTexHits = 0;\n"
         "\t\tu64 texCopyCalls = 0;\n"
         "\t\tu64 texCopySwFallbacks = 0;\n"
+        "\t\tu64 zeroTriggerDraws = 0;\n"
+        "\t\tu64 partialAttribMasks = 0;\n"
+        "\t\tu64 dstAlphaBlendDraws = 0;\n"
+        "\t\tu64 blankTexDraws = 0;\n"
+        "\t\tu64 litDraws = 0;\n"
+        "\t\tu64 texCacheClearWrites = 0;\n"
+        "\t\tu64 memFillMisses = 0;\n"
+        "\t\tu64 zeroColorMaskDraws = 0;\n"
         "\t\tu32 tex0TypeMask = 0;\n"
         "\t\tu32 fogModeMask = 0;\n"
         "\t\tu32 gspQueueMax = 0;\n"
+        "\t\tu32 blendEqMask = 0;\n"
+        "\t\tu32 primTypeMask = 0;\n"
+        "\t\tu32 texFmtMask = 0;\n"
+        "\t\tu32 alphaTestMask = 0;\n"
+        "\t\tu32 lightFeatMask = 0;\n"
         "\t\tdouble cpuMs = 0.0;\n"
         "\t\tdouble gpuMs = 0.0;\n"
         "\t\tdouble dispMs = 0.0;\n"
@@ -3284,7 +3297,8 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\treturn v;\n"
         "}\n\n"
         "void GPU::loadVertexAttributes(u32 vertexIndex, u32 vertexBase, u64 vertexCfg) {\n"
-        "\tstatic constexpr std::array<u32, 4> elemAligns = {1, 1, 2, 4};\n\n"
+        "\tstatic constexpr std::array<u32, 4> elemAligns = {1, 1, 2, 4};\n"
+        "\tu32 loadedAttrMask = 0;\n\n"
         "\tfor (u32 loaderIdx = 0; loaderIdx < maxAttribCount; ++loaderIdx) {\n"
         "\t\tauto& attr = attributeInfo[loaderIdx];\n"
         "\t\tif (attr.componentCount == 0 || attr.size == 0) {\n"
@@ -3301,6 +3315,7 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\t\t\tattrOffset += (index - 11u) << 2;\n"
         "\t\t\t\tcontinue;\n"
         "\t\t\t}\n"
+        "\t\t\tloadedAttrMask |= (1u << index);\n"
         "\t\t\tconst u32 attribInfo = (vertexCfg >> (index * 4)) & 0xf;\n"
         "\t\t\tconst u32 attribType = attribInfo & 0x3;\n"
         "\t\t\tconst u32 size = (attribInfo >> 2) + 1;\n"
@@ -3356,7 +3371,7 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\t}\n"
         "\t}\n\n"
         "\tfor (u32 i = 0; i < totalAttribCount && i < 16; ++i) {\n"
-        "\t\tif (i >= 12 || (fixedAttribMask & (1u << i)) != 0) {\n"
+        "\t\tif ((loadedAttrMask & (1u << i)) == 0 && (i >= 12 || (fixedAttribMask & (1u << i)) != 0)) {\n"
         "\t\t\tcurrentAttributes[i] = shaderUnit.vs.fixedAttributes[i];\n"
         "\t\t}\n"
         "\t}\n"
@@ -3780,8 +3795,10 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\t\t\t}\n"
         "\t\t\t\tbuffer++;\n"
         "\t\t\t}\n"
-        "\t\t}",
-        "\t\tloadVertexAttributes(vertexIndex, vertexBase, vertexCfg);",
+        "\t\t}\n\n"
+        "\t\t// Before running the shader, the PICA maps the fetched attributes from the attribute registers to the shader input registers",
+        "\t\tloadVertexAttributes(vertexIndex, vertexBase, vertexCfg);\n\n"
+        "\t\t// Before running the shader, the PICA maps the fetched attributes from the attribute registers to the shader input registers",
     )
 
     draw_accel_hpp = p3ds_dir / "include" / "PICA" / "draw_acceleration.hpp"
@@ -4072,6 +4089,14 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\t\treturn;\n"
         "\t\t}\n"
         "\t}",
+    )
+    replace_once(
+        draw_accel_cpp,
+        "\tu32 fixedAttributes = fixedAttribMask;\n"
+        "\taccel.fixedAttributes = 0;",
+        "\tconst u32 highFixedMask = (totalAttribCount > 12u) ? (((1u << std::min<u32>(totalAttribCount, 16u)) - 1u) & 0xF000u) : 0u;\n"
+        "\tu32 fixedAttributes = fixedAttribMask | highFixedMask;\n"
+        "\taccel.fixedAttributes = 0;",
     )
     replace_once(
         gpu_cpp,
@@ -4932,7 +4957,179 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\t    index == VertexShaderOutputMask || index == VertexShaderEntrypoint) {\n"
         "\t\t\tvertConfigDirty = true;\n"
         "\t\t}\n"
-        "\t}",
+        "\t}\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\tif (index == TexUnitCfg && (newValue & (1u << 16)) != 0u) {\n"
+        "\t\tHelpers::g_pandaPerf.texCacheClearWrites++;\n"
+        "\t}\n"
+        "#endif",
+    )
+    replace_once(
+        regs_cpp,
+        "\t\tcase SignalDrawArrays:\n"
+        "\t\t\tif (value != 0) drawArrays(false);\n"
+        "\t\t\tbreak;\n\n"
+        "\t\tcase SignalDrawElements:\n"
+        "\t\t\tif (value != 0) drawArrays(true);\n"
+        "\t\t\tbreak;\n\n"
+        "\t\tcase AttribFormatHigh:\n"
+        "\t\t\ttotalAttribCount = (value >> 28) + 1;      // Total number of vertex attributes\n"
+        "\t\t\tfixedAttribMask = getBits<16, 12>(value);  // Determines which vertex attributes are fixed for all vertices\n"
+        "\t\t\tbreak;\n\n"
+        "\t\tcase ColourBufferLoc: {\n"
+        "\t\t\tu32 loc = (value & 0x0fffffff) << 3;\n"
+        "\t\t\trenderer->setColourBufferLoc(loc);\n"
+        "\t\t\tbreak;\n"
+        "\t\t};\n\n"
+        "\t\tcase ColourBufferFormat: {\n"
+        "\t\t\tu32 format = getBits<16, 3>(value);\n"
+        "\t\t\trenderer->setColourFormat(static_cast<PICA::ColorFmt>(format));\n"
+        "\t\t\tbreak;\n"
+        "\t\t}\n\n"
+        "\t\tcase DepthBufferLoc: {\n"
+        "\t\t\tu32 loc = (value & 0x0fffffff) << 3;\n"
+        "\t\t\trenderer->setDepthBufferLoc(loc);\n"
+        "\t\t\tbreak;\n"
+        "\t\t}\n\n"
+        "\t\tcase DepthBufferFormat: {\n"
+        "\t\t\tu32 format = value & 0x3;\n"
+        "\t\t\trenderer->setDepthFormat(static_cast<PICA::DepthFmt>(format));\n"
+        "\t\t\tbreak;\n"
+        "\t\t}\n\n"
+        "\t\tcase FramebufferSize: {\n"
+        "\t\t\tconst u32 width = value & 0x7ff;\n"
+        "\t\t\tconst u32 height = getBits<12, 10>(value) + 1;\n"
+        "\t\t\trenderer->setFBSize(width, height);\n"
+        "\t\t\tbreak;\n"
+        "\t\t}",
+        "\t\tcase SignalDrawArrays:\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\t\t\tif (value == 0) {\n"
+        "\t\t\t\tHelpers::g_pandaPerf.zeroTriggerDraws++;\n"
+        "\t\t\t}\n"
+        "#endif\n"
+        "\t\t\tdrawArrays(false);\n"
+        "\t\t\tbreak;\n\n"
+        "\t\tcase SignalDrawElements:\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\t\t\tif (value == 0) {\n"
+        "\t\t\t\tHelpers::g_pandaPerf.zeroTriggerDraws++;\n"
+        "\t\t\t}\n"
+        "#endif\n"
+        "\t\t\tdrawArrays(true);\n"
+        "\t\t\tbreak;\n\n"
+        "\t\tcase AttribFormatHigh:\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\t\t\tif (mask != 0xffffffffu) {\n"
+        "\t\t\t\tHelpers::g_pandaPerf.partialAttribMasks++;\n"
+        "\t\t\t}\n"
+        "#endif\n"
+        "\t\t\ttotalAttribCount = (newValue >> 28) + 1;      // Total number of vertex attributes\n"
+        "\t\t\tfixedAttribMask = getBits<16, 12>(newValue);  // Determines which vertex attributes are fixed for all vertices\n"
+        "\t\t\tbreak;\n\n"
+        "\t\tcase ColourBufferLoc: {\n"
+        "\t\t\tu32 loc = (newValue & 0x0fffffff) << 3;\n"
+        "\t\t\trenderer->setColourBufferLoc(loc);\n"
+        "\t\t\tbreak;\n"
+        "\t\t};\n\n"
+        "\t\tcase ColourBufferFormat: {\n"
+        "\t\t\tu32 format = getBits<16, 3>(newValue);\n"
+        "\t\t\trenderer->setColourFormat(static_cast<PICA::ColorFmt>(format));\n"
+        "\t\t\tbreak;\n"
+        "\t\t}\n\n"
+        "\t\tcase DepthBufferLoc: {\n"
+        "\t\t\tu32 loc = (newValue & 0x0fffffff) << 3;\n"
+        "\t\t\trenderer->setDepthBufferLoc(loc);\n"
+        "\t\t\tbreak;\n"
+        "\t\t}\n\n"
+        "\t\tcase DepthBufferFormat: {\n"
+        "\t\t\tu32 format = newValue & 0x3;\n"
+        "\t\t\trenderer->setDepthFormat(static_cast<PICA::DepthFmt>(format));\n"
+        "\t\t\tbreak;\n"
+        "\t\t}\n\n"
+        "\t\tcase FramebufferSize: {\n"
+        "\t\t\tconst u32 width = newValue & 0x7ff;\n"
+        "\t\t\tconst u32 height = getBits<12, 10>(newValue) + 1;\n"
+        "\t\t\trenderer->setFBSize(width, height);\n"
+        "\t\t\tbreak;\n"
+        "\t\t}",
+    )
+    replace_once(
+        regs_cpp,
+        "\t\t\t\tif (fixedAttribIndex < 12) [[likely]] {",
+        "\t\t\t\tif (fixedAttribIndex < 15) [[likely]] {",
+    )
+    replace_once(
+        regs_cpp,
+        "\t\tcase CmdBufTrigger0:\n"
+        "\t\tcase CmdBufTrigger1: {\n"
+        "\t\t\tif (newValue != 0) {                           // A non-zero value triggers command list processing\n"
+        "\t\t\t\tint bufferIndex = index - CmdBufTrigger0;  // Index of the command buffer to execute (0 or 1)\n"
+        "\t\t\t\tu32 addr = (regs[CmdBufAddr0 + bufferIndex] & 0xfffffff) << 3;\n"
+        "\t\t\t\tu32 size = (regs[CmdBufSize0 + bufferIndex] & 0xfffff) << 3;\n\n"
+        "\t\t\t\t// Set command buffer state to execute the new buffer\n"
+        "\t\t\t\tcmdBuffStart = getPointerPhys<u32>(addr);\n"
+        "\t\t\t\tcmdBuffCurr = cmdBuffStart;\n"
+        "\t\t\t\tcmdBuffEnd = cmdBuffStart + (size / sizeof(u32));\n"
+        "\t\t\t}\n"
+        "\t\t\tbreak;\n"
+        "\t\t}\n\n"
+        "\t\tdefault:\n"
+        "\t\t\t// Vertex attribute registers\n"
+        "\t\t\tif (index >= AttribInfoStart && index <= AttribInfoEnd) {\n"
+        "\t\t\t\tuint attributeIndex = (index - AttribInfoStart) / 3;  // Which attribute are we writing to\n"
+        "\t\t\t\tuint reg = (index - AttribInfoStart) % 3;             // Which of this attribute's registers are we writing to?\n"
+        "\t\t\t\tauto& attr = attributeInfo[attributeIndex];\n\n"
+        "\t\t\t\tswitch (reg) {\n"
+        "\t\t\t\t\tcase 0: attr.offset = value & 0xfffffff; break;  // Attribute offset\n"
+        "\t\t\t\t\tcase 1: attr.config1 = value; break;\n"
+        "\t\t\t\t\tcase 2:\n"
+        "\t\t\t\t\t\tattr.config2 = value;\n"
+        "\t\t\t\t\t\tattr.size = getBits<16, 8>(value);\n"
+        "\t\t\t\t\t\tattr.componentCount = value >> 28;\n"
+        "\t\t\t\t\t\tbreak;\n"
+        "\t\t\t\t}\n"
+        "\t\t\t}",
+        "\t\tcase CmdBufTrigger0:\n"
+        "\t\tcase CmdBufTrigger1: {\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\t\t\tif (newValue == 0) {\n"
+        "\t\t\t\tHelpers::g_pandaPerf.zeroTriggerDraws++;\n"
+        "\t\t\t}\n"
+        "#endif\n"
+        "\t\t\tint bufferIndex = index - CmdBufTrigger0;  // Index of the command buffer to execute (0 or 1)\n"
+        "\t\t\tu32 addr = (regs[CmdBufAddr0 + bufferIndex] & 0xfffffff) << 3;\n"
+        "\t\t\tu32 size = (regs[CmdBufSize0 + bufferIndex] & 0xfffff) << 3;\n\n"
+        "\t\t\t// Set command buffer state to execute the new buffer\n"
+        "\t\t\tu32* nextBuf = getPointerPhys<u32>(addr);\n"
+        "\t\t\tif (nextBuf != nullptr && size > 0) {\n"
+        "\t\t\t\tcmdBuffStart = nextBuf;\n"
+        "\t\t\t\tcmdBuffCurr = cmdBuffStart;\n"
+        "\t\t\t\tcmdBuffEnd = cmdBuffStart + (size / sizeof(u32));\n"
+        "\t\t\t}\n"
+        "\t\t\tbreak;\n"
+        "\t\t}\n\n"
+        "\t\tdefault:\n"
+        "\t\t\t// Vertex attribute registers\n"
+        "\t\t\tif (index >= AttribInfoStart && index <= AttribInfoEnd) {\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\t\t\t\tif (mask != 0xffffffffu) {\n"
+        "\t\t\t\t\tHelpers::g_pandaPerf.partialAttribMasks++;\n"
+        "\t\t\t\t}\n"
+        "#endif\n"
+        "\t\t\t\tuint attributeIndex = (index - AttribInfoStart) / 3;  // Which attribute are we writing to\n"
+        "\t\t\t\tuint reg = (index - AttribInfoStart) % 3;             // Which of this attribute's registers are we writing to?\n"
+        "\t\t\t\tauto& attr = attributeInfo[attributeIndex];\n\n"
+        "\t\t\t\tswitch (reg) {\n"
+        "\t\t\t\t\tcase 0: attr.offset = newValue & 0xfffffff; break;  // Attribute offset\n"
+        "\t\t\t\t\tcase 1: attr.config1 = newValue; break;\n"
+        "\t\t\t\t\tcase 2:\n"
+        "\t\t\t\t\t\tattr.config2 = newValue;\n"
+        "\t\t\t\t\t\tattr.size = getBits<16, 8>(newValue);\n"
+        "\t\t\t\t\t\tattr.componentCount = newValue >> 28;\n"
+        "\t\t\t\t\t\tbreak;\n"
+        "\t\t\t\t}\n"
+        "\t\t\t}",
     )
     replace_once(
         regs_cpp,
@@ -5259,6 +5456,7 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
     )
     replace_once(
         regs_cpp,
+        "\t\twriteInternalReg(id, param1, mask);\n"
         "\t\tfor (u32 i = 0; i < paramCount; i++) {\n"
         "\t\t\tid += idIncrement;\n"
         "\t\t\tu32 param = *cmdBuffCurr++;\n"
@@ -5266,10 +5464,12 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\t}\n"
         "\t}\n"
         "}",
+        "\t\tconst u32* extra = cmdBuffCurr;\n"
+        "\t\tcmdBuffCurr += paramCount;\n"
+        "\t\twriteInternalReg(id, param1, mask);\n"
         "\t\tfor (u32 i = 0; i < paramCount; i++) {\n"
         "\t\t\tid += idIncrement;\n"
-        "\t\t\tu32 param = *cmdBuffCurr++;\n"
-        "\t\t\twriteInternalReg(id, param, mask);\n"
+        "\t\t\twriteInternalReg(id, extra[i], mask);\n"
         "\t\t}\n"
         "\t}\n"
         "\tflushImmediateBatch();\n"
@@ -5842,6 +6042,8 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t};\n\n"
         "\tstd::array<bool, 3> slotEnabled{};\n"
         "\tstd::array<GLuint, 3> slotHandles{};\n"
+        "\tstd::array<u32, 3> slotFmt{};\n"
+        "\tstd::array<bool, 3> slotBlank{};\n"
         "\tauto resolveSlots = [&]() {\n"
         "\t\tfor (int i = 0; i < 3; i++) {\n"
         "\t\t\tif ((regs[PICA::InternalRegs::TexUnitCfg] & (1 << i)) == 0) {\n"
@@ -5853,11 +6055,13 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\t\tconst u32 dim = regs[ioBase + 1];\n"
         "\t\t\tconst u32 config = regs[ioBase + 2];\n"
         "\t\t\tconst u32 addr = (regs[ioBase + 4] & 0x0FFFFFFF) << 3;\n"
-        "\t\t\tconst u32 format = regs[ioBase + (i == 0 ? 13 : 5)] & 0xF;\n\n"
+        "\t\t\tconst u32 format = regs[ioBase + (i == 0 ? 13 : 5)] & 0xF;\n"
+        "\t\t\tslotFmt[i] = format;\n\n"
         "\t\t\tif (addr != 0) [[likely]] {\n"
         "\t\t\t\tif (!hashTextures && lastTexSlotValid[i] && lastTexSlotAddr[i] == addr && lastTexSlotDim[i] == dim &&\n"
         "\t\t\t\t    lastTexSlotFmt[i] == format && ((lastTexSlotCfg[i] ^ config) & 0x7706u) == 0) {\n"
         "\t\t\t\t\tslotHandles[i] = lastTexSlotHandle[i];\n"
+        "\t\t\t\t\tslotBlank[i] = (slotHandles[i] == blankTexture.handle());\n"
         "\t\t\t\t} else {\n"
         "\t\t\t\t\tconst u32 height = dim & 0x7ff;\n"
         "\t\t\t\t\tconst u32 width = getBits<16, 11>(dim);\n"
@@ -5874,6 +6078,7 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\t\t\t\t}\n\n"
         "\t\t\t\t\tOpenGL::Texture tex = getTexture(targetTex);\n"
         "\t\t\t\t\tslotHandles[i] = tex.handle();\n"
+        "\t\t\t\t\tslotBlank[i] = (slotHandles[i] == blankTexture.handle());\n"
         "\t\t\t\t\tlastTexSlotValid[i] = true;\n"
         "\t\t\t\t\tlastTexSlotAddr[i] = addr;\n"
         "\t\t\t\t\tlastTexSlotDim[i] = dim;\n"
@@ -5883,6 +6088,7 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\t\t\t}\n"
         "\t\t\t} else {\n"
         "\t\t\t\tslotHandles[i] = blankTexture.handle();\n"
+        "\t\t\t\tslotBlank[i] = true;\n"
         "\t\t\t\tlastTexSlotValid[i] = false;\n"
         "\t\t\t}\n"
         "\t\t}\n"
@@ -5895,6 +6101,14 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\tfor (int i = 0; i < 3; i++) {\n"
         "\t\tif (slotEnabled[i]) {\n"
         "\t\t\tbindTextureUnit(i, slotHandles[i]);\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\t\t\tHelpers::g_pandaPerf.texFmtMask |= (1u << slotFmt[i]);\n"
+        "\t\t\tif (slotBlank[i]) {\n"
+        "\t\t\t\tHelpers::g_pandaPerf.blankTexDraws++;\n"
+        "\t\t\t}\n"
+        "#endif\n"
+        "\t\t} else {\n"
+        "\t\t\tbindTextureUnit(i, blankTexture.handle());\n"
         "\t\t}\n"
         "\t}\n\n"
         "\tbindTextureUnit(3, LUTTexture.handle());\n"
@@ -5954,6 +6168,22 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\tif (endAddress > startAddress) {\n"
         "\t\tinvalidateTextureRange(startAddress, endAddress - startAddress);\n"
         "\t}",
+    )
+    replace_once(
+        renderer_gl,
+        "\t\tconst float b = getBits<8, 8>(value) / 255.0f;\n"
+        "\t\tconst float a = (value & 0xff) / 255.0f;",
+        "\t\tconst float b = getBits<8, 8>(value) / 255.0f;\n"
+        "\t\tconst bool hasAlpha = (color->get().format != PICA::ColorFmt::RGB8 && color->get().format != PICA::ColorFmt::RGB565);\n"
+        "\t\tconst float a = hasAlpha ? ((value & 0xff) / 255.0f) : 1.0f;",
+    )
+    replace_once(
+        renderer_gl,
+        "\tlog(\"[RendererGL::ClearBuffer] No buffer found!\\n\");",
+        "#ifdef __EMSCRIPTEN__\n"
+        "\tHelpers::g_pandaPerf.memFillMisses++;\n"
+        "#endif\n"
+        "\tlog(\"[RendererGL::ClearBuffer] No buffer found!\\n\");",
     )
     replace_once(
         renderer_gl,
@@ -6021,6 +6251,22 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
     )
     replace_once(
         renderer_gl,
+        "\t\t// Translate equations and funcs to their GL equivalents and set them\n"
+        "\t\tgl.setBlendEquation(blendingEquations[rgbEquation], blendingEquations[alphaEquation]);\n"
+        "\t\tgl.setBlendFunc(blendingFuncs[rgbSourceFunc], blendingFuncs[rgbDestFunc], blendingFuncs[alphaSourceFunc], blendingFuncs[alphaDestFunc]);",
+        "\t\t// Translate equations and funcs to their GL equivalents and set them\n"
+        "\t\tgl.setBlendEquation(blendingEquations[rgbEquation], blendingEquations[alphaEquation]);\n"
+        "\t\tgl.setBlendFunc(blendingFuncs[rgbSourceFunc], blendingFuncs[rgbDestFunc], blendingFuncs[alphaSourceFunc], blendingFuncs[alphaDestFunc]);\n"
+        "#ifdef __EMSCRIPTEN__\n"
+        "\t\tHelpers::g_pandaPerf.blendEqMask |= (1u << rgbEquation) | (1u << (alphaEquation + 8u));\n"
+        "\t\tif (rgbSourceFunc == 8 || rgbSourceFunc == 9 || rgbDestFunc == 8 || rgbDestFunc == 9 ||\n"
+        "\t\t    alphaSourceFunc == 8 || alphaSourceFunc == 9 || alphaDestFunc == 8 || alphaDestFunc == 9) {\n"
+        "\t\t\tHelpers::g_pandaPerf.dstAlphaBlendDraws++;\n"
+        "\t\t}\n"
+        "#endif",
+    )
+    replace_once(
+        renderer_gl,
         "\tconst s32 reference = s8(getBits<16, 8>(stencilConfig));  // Signed reference value",
         "\tconst s32 reference = static_cast<s32>(getBits<16, 8>(stencilConfig));\n"
         "#ifdef __EMSCRIPTEN__\n"
@@ -6030,18 +6276,43 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
     replace_once(
         renderer_gl,
         "\tgl.setColourMask(colourMask & 1, colourMask & 2, colourMask & 4, colourMask & 8);",
+        "\tconst bool fbHasAlpha = (colourBufferFormat != PICA::ColorFmt::RGB8 && colourBufferFormat != PICA::ColorFmt::RGB565);\n"
         "\tconst bool logicOpNoOp = driverInfo.usingGLES &&\n"
         "\t                         ((regs[PICA::InternalRegs::ColourOperation] & (1 << 8)) == 0) &&\n"
         "\t                         (getBits<0, 4>(regs[PICA::InternalRegs::LogicOp]) == static_cast<u32>(PICA::LogicOpMode::Nop));\n"
         "\tif (logicOpNoOp) {\n"
         "\t\tgl.setColourMask(false, false, false, false);\n"
         "\t} else {\n"
-        "\t\tgl.setColourMask(colourMask & 1, colourMask & 2, colourMask & 4, colourMask & 8);\n"
+        "\t\tgl.setColourMask(colourMask & 1, colourMask & 2, colourMask & 4, fbHasAlpha && (colourMask & 8));\n"
         "\t}\n"
         "#ifdef __EMSCRIPTEN__\n"
         "\tHelpers::g_pandaPerf.tex0TypeMask |= (1u << getBits<28, 3>(regs[PICA::InternalRegs::Tex0BorderColor + 2]));\n"
         "\tHelpers::g_pandaPerf.fogModeMask |= (1u << getBits<0, 3>(regs[PICA::InternalRegs::TexEnvUpdateBuffer]));\n"
+        "\tHelpers::g_pandaPerf.primTypeMask |= (1u << static_cast<u32>(primType));\n"
+        "\tif (colourMask == 0) {\n"
+        "\t\tHelpers::g_pandaPerf.zeroColorMaskDraws++;\n"
+        "\t}\n"
+        "\tconst u32 atCfg = regs[PICA::InternalRegs::AlphaTestConfig];\n"
+        "\tif (atCfg & 1u) {\n"
+        "\t\tHelpers::g_pandaPerf.alphaTestMask |= (1u << getBits<4, 3>(atCfg));\n"
+        "\t}\n"
+        "\tif (regs[PICA::InternalRegs::LightingEnable] & 1u) {\n"
+        "\t\tHelpers::g_pandaPerf.litDraws++;\n"
+        "\t\tconst u32 lc0 = regs[PICA::InternalRegs::LightConfig0];\n"
+        "\t\tHelpers::g_pandaPerf.lightFeatMask |= (1u << getBits<28, 2>(lc0)) | ((lc0 & 1u) << 4);\n"
+        "\t}\n"
         "#endif",
+    )
+    replace_once(
+        renderer_gl,
+        "\t} else {\n"
+        "\t\tif (depthWriteEnable) {\n"
+        "\t\t\tgl.enableDepth();\n"
+        "\t\t\tgl.setDepthMask(GL_TRUE);",
+        "\t} else {\n"
+        "\t\tif (depthWriteEnable && depthWrite) {\n"
+        "\t\t\tgl.enableDepth();\n"
+        "\t\t\tgl.setDepthMask(GL_TRUE);",
     )
     replace_once(
         renderer_gl,
@@ -8733,7 +9004,7 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\tconst double fps = (static_cast<double>(Helpers::g_pandaPerf.frames) * 1000.0) / elapsedMs;\n"
         "\t\tconst double mips = static_cast<double>(Helpers::g_pandaPerf.armInstrs) / (elapsedMs * 1000.0);\n"
         "\t\tstd::printf(\n"
-        "\t\t\t\"[Perf] fps=%.1f cpu=%.2fms gpu=%.2fms disp=%.2fms mir=%.2fms mips=%.1f draws=%.1f sw=%.1f imm=%.1f texMiss=%llu shCmp=%llu acc=%d swOff=%llu decF=%llu glF=%llu repk=%llu gs=%llu/%llu ptex=%llu nb=%llu stnc=%llu t0m=%x fogM=%x cbTex=%llu tc=%llu/%llu qMax=%u\\n\",\n"
+        "\t\t\t\"[Perf] fps=%.1f cpu=%.2fms gpu=%.2fms disp=%.2fms mir=%.2fms mips=%.1f draws=%.1f sw=%.1f imm=%.1f texMiss=%llu shCmp=%llu acc=%d swOff=%llu decF=%llu glF=%llu repk=%llu gs=%llu/%llu ptex=%llu nb=%llu stnc=%llu t0m=%x fogM=%x cbTex=%llu tc=%llu/%llu qMax=%u dz=%llu pm=%llu beq=%x bfD=%llu primM=%x fmtM=%x texZ=%llu atM=%x lgt=%llu/%x tcc=%llu mfM=%llu cm0=%llu\\n\",\n"
         "\t\t\tfps,\n"
         "\t\t\tHelpers::g_pandaPerf.cpuMs * invFrames,\n"
         "\t\t\tHelpers::g_pandaPerf.gpuMs * invFrames,\n"
@@ -8760,7 +9031,20 @@ def patch_panda3ds(p3ds_dir: Path) -> None:
         "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.cbTexHits),\n"
         "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.texCopyCalls),\n"
         "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.texCopySwFallbacks),\n"
-        "\t\t\tHelpers::g_pandaPerf.gspQueueMax\n"
+        "\t\t\tHelpers::g_pandaPerf.gspQueueMax,\n"
+        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.zeroTriggerDraws),\n"
+        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.partialAttribMasks),\n"
+        "\t\t\tHelpers::g_pandaPerf.blendEqMask,\n"
+        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.dstAlphaBlendDraws),\n"
+        "\t\t\tHelpers::g_pandaPerf.primTypeMask,\n"
+        "\t\t\tHelpers::g_pandaPerf.texFmtMask,\n"
+        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.blankTexDraws),\n"
+        "\t\t\tHelpers::g_pandaPerf.alphaTestMask,\n"
+        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.litDraws),\n"
+        "\t\t\tHelpers::g_pandaPerf.lightFeatMask,\n"
+        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.texCacheClearWrites),\n"
+        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.memFillMisses),\n"
+        "\t\t\tstatic_cast<unsigned long long>(Helpers::g_pandaPerf.zeroColorMaskDraws)\n"
         "\t\t);\n"
         "\t\tHelpers::g_pandaPerf = {};\n"
         "\t\tperfLastMs = perfNowMs;\n"
