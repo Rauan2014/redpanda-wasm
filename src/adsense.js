@@ -161,8 +161,17 @@ function renderCustomPermissiveBanner({ frameEl, insElement, statusElement, cfg 
 
   if (cfg.adsterraKey) {
     const safeKey = cfg.adsterraKey.replace(/[^a-f0-9]/gi, '');
-    const safeHost = cfg.adsterraHost.replace(/[^a-z0-9.-]/gi, '');
-    iframe.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;background:transparent;overflow:hidden;}</style></head><body><script>atOptions={'key':'${safeKey}','format':'iframe','height':90,'width':728,'params':{}};</script><script src="https://${safeHost}/${safeKey}/invoke.js"></script></body></html>`;
+    let scriptUrl = '';
+    const rawHost = cfg.adsterraHost.trim();
+    if (/^(https?:)?\/\/[^/]+\/.+/i.test(rawHost)) {
+      // Full script URL provided (e.g. https://example.com/00/00000000000000000000000000000000)
+      scriptUrl = rawHost.startsWith('//') ? `https:${rawHost}` : rawHost;
+    } else {
+      let hostOnly = rawHost.replace(/^https?:\/\//i, '').replace(/^\/\//, '').split('/')[0];
+      hostOnly = hostOnly.replace(/[^a-z0-9.-]/gi, '') || 'www.highperformanceformat.com';
+      scriptUrl = `https://${hostOnly}/${safeKey}/invoke.js`;
+    }
+    iframe.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;background:transparent;overflow:hidden;min-height:90px;width:100%;}</style></head><body><script>atOptions={'key':'${safeKey}','format':'iframe','height':90,'width':728,'params':{}};</script><script src="${scriptUrl}"></script></body></html>`;
   } else {
     iframe.src = cfg.adsterraBannerUrl;
   }
