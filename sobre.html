@@ -2,11 +2,17 @@
 <html lang="pt-BR" data-i18n-title="sobre.pageTitle">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Panda3DS Web — Documentação, Política de Privacidade, Termos de Uso e Contato</title>
   <style>
-    :root { color-scheme: dark; }
+    :root {
+      color-scheme: dark;
+      --target-size: 24px;
+    }
+    @media (pointer: coarse) {
+      :root { --target-size: 44px; }
+    }
     *, *::before, *::after { box-sizing: border-box; }
     body {
       margin: 0;
@@ -14,11 +20,23 @@
       background: #0c121e;
       color: #e2e8f0;
       line-height: 1.68;
+      overflow-wrap: break-word;
+    }
+    :where(a, code) { overflow-wrap: anywhere; }
+    h1, h2, h3 { text-wrap: balance; }
+    p, li { text-wrap: pretty; }
+    :where(button, .sub-nav a, a.back-btn) {
+      min-block-size: var(--target-size);
+      min-inline-size: var(--target-size);
     }
     .wrap {
       max-width: 880px;
       margin: 0 auto;
-      padding: 28px 18px 56px;
+      padding:
+        max(24px, env(safe-area-inset-top, 0px))
+        max(16px, env(safe-area-inset-right, 0px))
+        max(48px, env(safe-area-inset-bottom, 0px))
+        max(16px, env(safe-area-inset-left, 0px));
     }
     header {
       display: flex;
@@ -94,9 +112,11 @@
       margin-bottom: 22px;
     }
     .sub-nav a {
+      display: inline-flex;
+      align-items: center;
       font-size: 0.85rem;
       font-weight: 600;
-      padding: 5px 11px;
+      padding: 6px 12px;
       border-radius: 999px;
       background: #121b2d;
       border: 1px solid #263349;
@@ -170,11 +190,23 @@
       background: #090d16;
       margin-top: 10px;
     }
+    .table-wrapper {
+      overflow: auto;
+      max-inline-size: 100%;
+      container-type: inline-size;
+      margin-top: 10px;
+      border-radius: 8px;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 0.92rem;
-      margin-top: 10px;
+    }
+    caption {
+      text-align: left;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #e2e8f0;
     }
     th, td {
       padding: 9px 10px;
@@ -182,6 +214,50 @@
       text-align: left;
     }
     th { color: #93c5fd; }
+    @container (width < 520px) {
+      .table-wrapper table,
+      .table-wrapper thead,
+      .table-wrapper tbody,
+      .table-wrapper tr,
+      .table-wrapper th,
+      .table-wrapper td {
+        display: block;
+      }
+      .table-wrapper thead {
+        display: none;
+      }
+      .table-wrapper tr {
+        margin-block-end: 0.75rem;
+        border: 1px solid #1e293b;
+        border-radius: 8px;
+        padding: 6px 10px;
+        background: rgba(15, 23, 42, 0.55);
+      }
+      .table-wrapper tbody th {
+        border-bottom: 1px solid #1e293b;
+        padding: 6px 0;
+        color: #7dd3fc;
+      }
+      .table-wrapper td {
+        border-bottom: 0;
+        padding: 5px 0;
+      }
+      .table-wrapper td:nth-child(2)::before {
+        content: var(--label-2, "Teclado") ": ";
+        font-weight: 700;
+        color: #93c5fd;
+      }
+      .table-wrapper td:nth-child(3)::before {
+        content: var(--label-3, "Gamepad / Mouse") ": ";
+        font-weight: 700;
+        color: #93c5fd;
+      }
+    }
+    @media (max-width: 480px) {
+      .card {
+        padding: 16px 14px;
+      }
+    }
     code {
       font-family: ui-monospace, Menlo, monospace;
       background: #1e293b;
@@ -279,48 +355,50 @@
           Nintendo Switch Pro Controller, 8BitDo), teclado completo, cliques ou toques na tela inferior e movimento do mouse
           para simular o Circle Pad analógico.
         </p>
-        <table>
-          <caption data-i18n="sobre.tableCaption">Referência Completa de Mapeamento</caption>
-          <thead>
-            <tr>
-              <th scope="col" data-i18n="sobre.thCommand">Comando do Console</th>
-              <th scope="col" data-i18n="sobre.thKeyboard">Teclado</th>
-              <th scope="col" data-i18n="sobre.thGamepadMouse">Gamepad / Mouse</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th scope="row" data-i18n="sobre.rowAnalog">Analógico (Circle Pad)</th>
-              <td><code>W A S D</code></td>
-              <td data-i18n="sobre.rowAnalogGp">Analógico Esquerdo ou Movimento do Mouse</td>
-            </tr>
-            <tr>
-              <th scope="row" data-i18n="sobre.rowDpad">D-Pad (Cruzeta Digital)</th>
-              <td data-i18n-html="sobre.rowDpadKeysHtml"><code>Setas ↑ ↓ ← →</code></td>
-              <td data-i18n="sobre.rowDpadGp">Direcional Digital (D-Pad)</td>
-            </tr>
-            <tr>
-              <th scope="row" data-i18n="sobre.rowAbxy">Botões A / B / X / Y</th>
-              <td data-i18n-html="sobre.rowAbxyKeysHtml"><code>L / K / O / I</code> ou <code>X / Z / V / C</code></td>
-              <td data-i18n="sobre.rowAbxyGp">Botões Frontais do Controle ou Clique na UI</td>
-            </tr>
-            <tr>
-              <th scope="row" data-i18n="sobre.rowShoulders">Ombros L / R e Gatilhos ZL / ZR</th>
-              <td data-i18n-html="sobre.rowShouldersKeysHtml"><code>Q / P</code> e <code>1 / 0</code></td>
-              <td>LB / RB e LT / RT</td>
-            </tr>
-            <tr>
-              <th scope="row">START / SELECT / HOME</th>
-              <td><code>Enter</code> / <code>Backspace</code> / <code>H</code></td>
-              <td data-i18n="sobre.rowStartGp">Start / Select / Botão Guia</td>
-            </tr>
-            <tr>
-              <th scope="row" data-i18n="sobre.rowFullscreen">Tela Cheia (Somente Telas)</th>
-              <td data-i18n-html="sobre.rowFullscreenKeysHtml"><code>F</code> (<code>Esc</code> para sair)</td>
-              <td data-i18n="sobre.rowFullscreenDesc">Oculta toda a moldura e exibe apenas as duas telas</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="table-wrapper" tabindex="0" role="region" aria-labelledby="sobre-table-caption">
+          <table id="sobre-controls-table">
+            <caption id="sobre-table-caption" data-i18n="sobre.tableCaption">Referência Completa de Mapeamento</caption>
+            <thead>
+              <tr>
+                <th scope="col" data-i18n="sobre.thCommand">Comando do Console</th>
+                <th scope="col" data-i18n="sobre.thKeyboard">Teclado</th>
+                <th scope="col" data-i18n="sobre.thGamepadMouse">Gamepad / Mouse</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row" data-i18n="sobre.rowAnalog">Analógico (Circle Pad)</th>
+                <td><code>W A S D</code></td>
+                <td data-i18n="sobre.rowAnalogGp">Analógico Esquerdo ou Movimento do Mouse</td>
+              </tr>
+              <tr>
+                <th scope="row" data-i18n="sobre.rowDpad">D-Pad (Cruzeta Digital)</th>
+                <td data-i18n-html="sobre.rowDpadKeysHtml"><code>Setas ↑ ↓ ← →</code></td>
+                <td data-i18n="sobre.rowDpadGp">Direcional Digital (D-Pad)</td>
+              </tr>
+              <tr>
+                <th scope="row" data-i18n="sobre.rowAbxy">Botões A / B / X / Y</th>
+                <td data-i18n-html="sobre.rowAbxyKeysHtml"><code>L / K / O / I</code> ou <code>X / Z / V / C</code></td>
+                <td data-i18n="sobre.rowAbxyGp">Botões Frontais do Controle ou Clique na UI</td>
+              </tr>
+              <tr>
+                <th scope="row" data-i18n="sobre.rowShoulders">Ombros L / R e Gatilhos ZL / ZR</th>
+                <td data-i18n-html="sobre.rowShouldersKeysHtml"><code>Q / P</code> e <code>1 / 0</code></td>
+                <td>LB / RB e LT / RT</td>
+              </tr>
+              <tr>
+                <th scope="row">START / SELECT / HOME</th>
+                <td><code>Enter</code> / <code>Backspace</code> / <code>H</code></td>
+                <td data-i18n="sobre.rowStartGp">Start / Select / Botão Guia</td>
+              </tr>
+              <tr>
+                <th scope="row" data-i18n="sobre.rowFullscreen">Tela Cheia (Somente Telas)</th>
+                <td data-i18n-html="sobre.rowFullscreenKeysHtml"><code>F</code> (<code>Esc</code> para sair)</td>
+                <td data-i18n="sobre.rowFullscreenDesc">Oculta toda a moldura e exibe apenas as duas telas</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section class="card" id="privacidade">
@@ -425,10 +503,18 @@
   </div>
 
   <script type="module">
-    import { initI18n, onLangChange } from '/src/i18n.js';
+    import { initI18n, onLangChange, t } from '/src/i18n.js';
     import { initAdSense, getAdSenseConfig } from '/src/adsense.js';
 
+    function syncTableLabels() {
+      const tbl = document.getElementById('sobre-controls-table');
+      if (!tbl) return;
+      tbl.style.setProperty('--label-2', JSON.stringify(t('sobre.thKeyboard')));
+      tbl.style.setProperty('--label-3', JSON.stringify(t('sobre.thGamepadMouse')));
+    }
+
     initI18n();
+    syncTableLabels();
     const cfg = getAdSenseConfig();
     const pixCodeEl = document.getElementById('sobre-pix-code');
     if (pixCodeEl && cfg.pixKey) {
@@ -440,6 +526,7 @@
       containerElement: document.getElementById('sobre-ad-container'),
     });
     onLangChange(() => {
+      syncTableLabels();
       adHandle?.refreshLanguage?.();
     });
   </script>

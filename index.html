@@ -2,7 +2,7 @@
 <html lang="pt-BR" data-i18n-title="index.pageTitle">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Panda3DS Web — Emulador 3DS em WebAssembly</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1320'/%3E%3Crect x='5' y='4' width='22' height='11' rx='2' fill='%2338bdf8'/%3E%3Crect x='7' y='18' width='18' height='10' rx='2' fill='%23e2e8f0'/%3E%3C/svg%3E">
@@ -13,17 +13,30 @@
 
     <!-- Console Dual-Screen -->
     <section class="n3ds-console" id="console-shell" data-i18n-aria-label="console.regionAria" aria-label="Console Dual-Screen 3DS">
-      <button
-        type="button"
-        class="fullscreen-exit-btn"
-        id="exit-fullscreen-btn"
-        hidden
-        data-i18n="fullscreen.exitBtn"
-        data-i18n-aria-label="fullscreen.exitAria"
-        aria-label="Sair da tela cheia"
-      >
-        ✕ Sair da Tela Cheia (Esc)
-      </button>
+      <div class="fullscreen-hud-bar" id="fullscreen-hud-bar" hidden>
+        <button
+          type="button"
+          class="fullscreen-hud-btn"
+          id="fs-controls-toggle-btn"
+          data-i18n="fullscreen.toggleControlsBtn"
+          data-i18n-aria-label="fullscreen.toggleControlsAria"
+          aria-label="Alternar controles na tela cheia"
+          aria-pressed="false"
+        >
+          🎮 Controles
+        </button>
+        <button
+          type="button"
+          class="fullscreen-exit-btn"
+          id="exit-fullscreen-btn"
+          hidden
+          data-i18n="fullscreen.exitBtn"
+          data-i18n-aria-label="fullscreen.exitAria"
+          aria-label="Sair da tela cheia"
+        >
+          ✕ Sair da Tela Cheia (Esc)
+        </button>
+      </div>
       <!-- Tampa Superior -->
       <div class="n3ds-top-lid">
         <div class="lid-camera-row" aria-hidden="true">
@@ -587,48 +600,50 @@
           </label>
         </div>
 
-        <table class="controls-map-table">
-          <caption data-i18n="controlsDialog.tableCaption">Mapeamento de teclas e botões</caption>
-          <thead>
-            <tr>
-              <th scope="col" data-i18n="controlsDialog.thConsole">Console 3DS</th>
-              <th scope="col" data-i18n="controlsDialog.thKeyboard">Teclado</th>
-              <th scope="col" data-i18n="controlsDialog.thGamepadMouse">Gamepad / Mouse</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th scope="row" data-i18n="controlsDialog.rowCirclePad">Circle Pad (Analógico)</th>
-              <td><code>W A S D</code></td>
-              <td data-i18n="controlsDialog.rowCirclePadGp">Analógico Esq. ou Movimento do Mouse</td>
-            </tr>
-            <tr>
-              <th scope="row" data-i18n="controlsDialog.rowDpad">D-Pad (Cruzeta)</th>
-              <td data-i18n-html="controlsDialog.rowDpadKeysHtml"><code>Setas ↑ ↓ ← →</code></td>
-              <td data-i18n="controlsDialog.rowDpadGp">D-Pad do Controle</td>
-            </tr>
-            <tr>
-              <th scope="row">A / B / X / Y</th>
-              <td data-i18n-html="controlsDialog.rowAbxyKeysHtml"><code>L K O I</code> ou <code>X Z V C</code></td>
-              <td data-i18n="controlsDialog.rowAbxyGp">Botões frontais (ou clique no console)</td>
-            </tr>
-            <tr>
-              <th scope="row" data-i18n="controlsDialog.rowShoulders">L / R e ZL / ZR</th>
-              <td data-i18n-html="controlsDialog.rowShouldersKeysHtml"><code>Q P</code> e <code>1 0</code></td>
-              <td>LB / RB e LT / RT</td>
-            </tr>
-            <tr>
-              <th scope="row">START / SELECT / HOME</th>
-              <td><code>Enter</code> / <code>Backspace</code> / <code>H</code></td>
-              <td data-i18n="controlsDialog.rowStartGp">Menu / View / Guide (Home)</td>
-            </tr>
-            <tr>
-              <th scope="row" data-i18n="controlsDialog.rowFullscreen">Tela Cheia / Modo Mouse</th>
-              <td><code>F</code> / <code>M</code></td>
-              <td data-i18n="controlsDialog.rowFullscreenDesc">Exibe apenas a tela maior e a menor</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="table-wrapper" tabindex="0" role="region" aria-labelledby="controls-table-caption">
+          <table class="controls-map-table">
+            <caption id="controls-table-caption" data-i18n="controlsDialog.tableCaption">Mapeamento de teclas e botões</caption>
+            <thead>
+              <tr>
+                <th scope="col" data-i18n="controlsDialog.thConsole">Console 3DS</th>
+                <th scope="col" data-i18n="controlsDialog.thKeyboard">Teclado</th>
+                <th scope="col" data-i18n="controlsDialog.thGamepadMouse">Gamepad / Mouse</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row" data-i18n="controlsDialog.rowCirclePad">Circle Pad (Analógico)</th>
+                <td><code>W A S D</code></td>
+                <td data-i18n="controlsDialog.rowCirclePadGp">Analógico Esq. ou Movimento do Mouse</td>
+              </tr>
+              <tr>
+                <th scope="row" data-i18n="controlsDialog.rowDpad">D-Pad (Cruzeta)</th>
+                <td data-i18n-html="controlsDialog.rowDpadKeysHtml"><code>Setas ↑ ↓ ← →</code></td>
+                <td data-i18n="controlsDialog.rowDpadGp">D-Pad do Controle</td>
+              </tr>
+              <tr>
+                <th scope="row">A / B / X / Y</th>
+                <td data-i18n-html="controlsDialog.rowAbxyKeysHtml"><code>L K O I</code> ou <code>X Z V C</code></td>
+                <td data-i18n="controlsDialog.rowAbxyGp">Botões frontais (ou clique no console)</td>
+              </tr>
+              <tr>
+                <th scope="row" data-i18n="controlsDialog.rowShoulders">L / R e ZL / ZR</th>
+                <td data-i18n-html="controlsDialog.rowShouldersKeysHtml"><code>Q P</code> e <code>1 0</code></td>
+                <td>LB / RB e LT / RT</td>
+              </tr>
+              <tr>
+                <th scope="row">START / SELECT / HOME</th>
+                <td><code>Enter</code> / <code>Backspace</code> / <code>H</code></td>
+                <td data-i18n="controlsDialog.rowStartGp">Menu / View / Guide (Home)</td>
+              </tr>
+              <tr>
+                <th scope="row" data-i18n="controlsDialog.rowFullscreen">Tela Cheia / Modo Mouse</th>
+                <td><code>F</code> / <code>M</code></td>
+                <td data-i18n="controlsDialog.rowFullscreenDesc">Exibe apenas a tela maior e a menor</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
       <div class="dialog-footer">
         <form method="dialog">

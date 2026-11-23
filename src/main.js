@@ -102,6 +102,8 @@ const pageShellEl = document.getElementById('page-shell');
 const consoleShellEl = document.getElementById('console-shell');
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 const utilityFullscreenBtn = document.getElementById('utility-fullscreen-btn');
+const fullscreenHudBar = document.getElementById('fullscreen-hud-bar');
+const fsControlsToggleBtn = document.getElementById('fs-controls-toggle-btn');
 const exitFullscreenBtn = document.getElementById('exit-fullscreen-btn');
 
 const mouseModeBtn = document.getElementById('mouse-mode-btn');
@@ -746,6 +748,12 @@ document.getElementById('btn-home').addEventListener('click', () => {
 // ============================================================================
 
 let cssFullscreenFallback = false;
+let fsControlsVisible = false;
+let fsControlsTouchedByUser = false;
+
+function shouldDefaultFsControlsVisible() {
+  return Boolean(window.matchMedia?.('(pointer: coarse)').matches) && !lastGamepadInfo;
+}
 
 function isFullscreenActive() {
   return Boolean(document.fullscreenElement) || cssFullscreenFallback;
@@ -753,9 +761,13 @@ function isFullscreenActive() {
 
 function syncFullscreenUi() {
   const active = isFullscreenActive();
+  const showControls = active && fsControlsVisible;
   pageShellEl.classList.toggle('is-fullscreen', active);
   consoleShellEl.classList.toggle('is-fullscreen', active);
+  consoleShellEl.classList.toggle('fs-controls-visible', showControls);
+  if (fullscreenHudBar) fullscreenHudBar.hidden = !active;
   exitFullscreenBtn.hidden = !active;
+  fsControlsToggleBtn?.setAttribute('aria-pressed', showControls ? 'true' : 'false');
   fullscreenBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
   fullscreenBtn.title = active ? t('fullscreen.exitTitle') : t('fullscreen.enterTitle');
   utilityFullscreenBtn.textContent = active ? t('fullscreen.utilityExit') : t('fullscreen.utilityEnter');
@@ -764,6 +776,9 @@ function syncFullscreenUi() {
 
 async function enterFullscreenMode() {
   if (isFullscreenActive()) return;
+  if (!fsControlsTouchedByUser) {
+    fsControlsVisible = shouldDefaultFsControlsVisible();
+  }
   try {
     if (document.documentElement.requestFullscreen) {
       await document.documentElement.requestFullscreen();
@@ -807,6 +822,11 @@ document.addEventListener('fullscreenchange', () => {
 fullscreenBtn.addEventListener('click', toggleFullscreenMode);
 utilityFullscreenBtn.addEventListener('click', toggleFullscreenMode);
 exitFullscreenBtn.addEventListener('click', () => void exitFullscreenMode());
+fsControlsToggleBtn?.addEventListener('click', () => {
+  fsControlsTouchedByUser = true;
+  fsControlsVisible = !fsControlsVisible;
+  syncFullscreenUi();
+});
 
 // ============================================================================
 // Unified Keyboard + Gamepad + Mouse Directional Input
@@ -841,6 +861,10 @@ function updateGamepadUi(gp) {
     gamepadStatusPillEl.classList.remove('is-connected');
     controlsGamepadInfoEl.textContent = t('controlsDialog.gamepadNone');
     controlsGamepadInfoEl.classList.remove('is-connected');
+  }
+  if (isFullscreenActive() && !fsControlsTouchedByUser) {
+    fsControlsVisible = shouldDefaultFsControlsVisible();
+    syncFullscreenUi();
   }
 }
 
@@ -1004,7 +1028,15 @@ document.querySelectorAll('.face-btn').forEach((btn) => {
 // Bootstrap
 // ============================================================================
 
+function syncControlsTableLabels() {
+  const table = document.querySelector('.controls-map-table');
+  if (!table) return;
+  table.style.setProperty('--label-2', JSON.stringify(t('controlsDialog.thKeyboard')));
+  table.style.setProperty('--label-3', JSON.stringify(t('controlsDialog.thGamepadMouse')));
+}
+
 initI18n();
+syncControlsTableLabels();
 syncLocalizedSlotMeta();
 syncMotionAndAudioButtons();
 updateMouseModeUi(lastMouseMode);
@@ -1024,6 +1056,7 @@ adHandle = initAdSense({
 });
 
 onLangChange(() => {
+  syncControlsTableLabels();
   syncLocalizedSlotMeta();
   selectSlot(state.selectedSlotId, { impulse: false, sound: false });
   syncFullscreenUi();

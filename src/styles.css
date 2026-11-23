@@ -1,5 +1,6 @@
 :root {
   color-scheme: dark;
+  --target-size: 24px;
   --bg-page-top: #0c121e;
   --bg-page-bottom: #141e30;
   --shell-primary: #1a2232;
@@ -19,6 +20,12 @@
   --focus-ring: #38bdf8;
 }
 
+@media (pointer: coarse) {
+  :root {
+    --target-size: 44px;
+  }
+}
+
 *,
 *::before,
 *::after {
@@ -32,6 +39,38 @@ body {
   font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
   background: radial-gradient(circle at 50% 15%, #1d2b44 0%, var(--bg-page-top) 52%, var(--bg-page-bottom) 100%);
   color: var(--text-light);
+  overflow-wrap: break-word;
+}
+
+:where(a, code) {
+  overflow-wrap: anywhere;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+p,
+li {
+  text-wrap: pretty;
+}
+
+img,
+video {
+  max-inline-size: 100%;
+  block-size: auto;
+}
+
+:where(button, select, textarea, input:not([type="checkbox"], [type="radio"]), [role="button"], nav a, label:has(input[type="checkbox"], input[type="radio"])) {
+  min-block-size: var(--target-size);
+  min-inline-size: var(--target-size);
+}
+
+:where([role="button"], nav a, label:has(input[type="checkbox"], input[type="radio"])) {
+  display: inline-flex;
+  align-items: center;
 }
 
 .visually-hidden:where(:not(:focus-within, :active)) {
@@ -46,7 +85,7 @@ body {
   white-space: nowrap !important;
 }
 
-:where(button, input, [tabindex]):focus-visible {
+:where(button, input, select, [tabindex]):focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
@@ -58,7 +97,11 @@ body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 10px 14px 14px;
+  padding:
+    max(10px, env(safe-area-inset-top, 0px))
+    max(12px, env(safe-area-inset-right, 0px))
+    max(14px, env(safe-area-inset-bottom, 0px))
+    max(12px, env(safe-area-inset-left, 0px));
 }
 
 /* ==========================================================================
@@ -67,6 +110,7 @@ body {
 
 .n3ds-console {
   width: min(552px, 100%);
+  container: console / inline-size;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -213,8 +257,10 @@ body {
   position: relative;
   z-index: 2;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 4px 8px;
   padding: 5px 8px;
   background: linear-gradient(180deg, rgba(2, 6, 23, 0.72) 0%, rgba(2, 6, 23, 0.35) 100%);
   border-bottom: 1px solid rgba(148, 163, 184, 0.25);
@@ -265,17 +311,36 @@ body {
 }
 
 .status-icon-btn {
+  position: relative;
   appearance: none;
   border: 1px solid rgba(148, 163, 184, 0.45);
   background: rgba(15, 23, 42, 0.75);
   color: #f8fafc;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
   padding: 3px 6px;
   border-radius: 4px;
   cursor: pointer;
-  min-width: 24px;
-  min-height: 20px;
+  min-inline-size: 26px;
+  min-block-size: 24px;
+  touch-action: manipulation;
+}
+
+@media (pointer: coarse) {
+  .status-right {
+    gap: 10px;
+  }
+
+  .status-icon-btn {
+    min-inline-size: 28px;
+    min-block-size: 26px;
+  }
+
+  .status-icon-btn::after {
+    content: "";
+    position: absolute;
+    inset: -5px;
+  }
 }
 
 .status-icon-btn:hover {
@@ -376,6 +441,8 @@ body {
   border-radius: 4px;
   background: #0f172a;
   color: #7dd3fc;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .pill-title {
@@ -445,6 +512,7 @@ body {
   box-shadow:
     inset 0 2px 2px rgba(255, 255, 255, 0.1),
     inset 0 -4px 12px rgba(0, 0, 0, 0.55);
+  touch-action: manipulation;
 }
 
 .shoulder-strip {
@@ -470,8 +538,12 @@ body {
   font-weight: 800;
   letter-spacing: 0.04em;
   padding: 2px 9px;
-  min-height: 18px;
+  min-block-size: 24px;
   cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   transition: transform 80ms ease, border-color 120ms ease, background 120ms ease;
 }
 
@@ -509,6 +581,9 @@ body {
   display: grid;
   place-items: center;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   cursor: grab;
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
@@ -537,8 +612,12 @@ body {
 /* D-Pad */
 .dpad {
   display: grid;
-  grid-template-columns: repeat(3, 21px);
-  grid-template-rows: repeat(3, 21px);
+  grid-template-columns: repeat(3, 24px);
+  grid-template-rows: repeat(3, 24px);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .dpad-btn {
@@ -552,6 +631,12 @@ body {
   cursor: pointer;
   display: grid;
   place-items: center;
+  min-inline-size: 24px;
+  min-block-size: 24px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .dpad-btn:hover {
@@ -572,15 +657,21 @@ body {
 /* A B X Y */
 .abxy-cluster {
   display: grid;
-  grid-template-columns: repeat(3, 22px);
-  grid-template-rows: repeat(3, 22px);
+  grid-template-columns: repeat(3, 24px);
+  grid-template-rows: repeat(3, 24px);
   gap: 2px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .face-btn {
   appearance: none;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
+  min-inline-size: 24px;
+  min-block-size: 24px;
   border-radius: 50%;
   border: 1px solid #090d16;
   background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
@@ -591,6 +682,10 @@ body {
   cursor: pointer;
   display: grid;
   place-items: center;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.45);
 }
 
@@ -649,6 +744,18 @@ body {
     radial-gradient(circle at 50% 0%, #ffffff 0%, var(--home-bg) 70%, #dce4ee 100%);
   color: var(--home-text);
   user-select: none;
+}
+
+.n3ds-console:not(.is-emulating) .screen-bottom {
+  height: auto;
+  min-block-size: 204px;
+}
+
+.n3ds-console.is-emulating .home-mini-bar,
+.n3ds-console.is-emulating .home-grid,
+.n3ds-console.is-emulating .home-dock {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .home-mini-bar {
@@ -880,7 +987,11 @@ body {
   padding: 5px 12px;
   border-radius: 6px;
   cursor: pointer;
-  min-height: 24px;
+  min-block-size: 24px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .sys-home-btn {
@@ -1151,7 +1262,7 @@ body {
   flex-direction: column;
   gap: 8px;
   content-visibility: auto;
-  contain-intrinsic-size: auto 820px auto 150px;
+  contain-intrinsic-block-size: auto 150px;
 }
 
 .ad-slot-header {
@@ -1219,7 +1330,8 @@ body {
 }
 
 .support-banner-copy {
-  flex: 1 1 320px;
+  flex: 1 1 min(320px, 100%);
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -1294,7 +1406,7 @@ body {
   gap: 16px;
   margin-bottom: 18px;
   content-visibility: auto;
-  contain-intrinsic-size: auto 960px auto 1200px;
+  contain-intrinsic-block-size: auto 900px;
 }
 
 @supports not (content-visibility: auto) {
@@ -1306,7 +1418,7 @@ body {
 
 .doc-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(310px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -1505,6 +1617,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .support-label {
@@ -1527,14 +1641,26 @@ body {
 }
 
 /* ==========================================================================
-   Modo Tela Cheia Puro (Apenas Tela Maior + Tela Menor, sem chrome da UI)
+   Modo Tela Cheia Puro (Apenas Tela Maior + Tela Menor, ou com Controles Touch)
    ========================================================================== */
 
-.fullscreen-exit-btn {
+.fullscreen-hud-bar {
   position: fixed;
-  top: 10px;
-  right: 10px;
+  top: max(10px, env(safe-area-inset-top, 0px));
+  right: max(10px, env(safe-area-inset-right, 0px));
   z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fullscreen-hud-bar[hidden],
+.fullscreen-exit-btn[hidden] {
+  display: none;
+}
+
+.fullscreen-hud-btn,
+.fullscreen-exit-btn {
   appearance: none;
   border: 1px solid rgba(148, 163, 184, 0.55);
   background: rgba(15, 23, 42, 0.84);
@@ -1544,10 +1670,19 @@ body {
   padding: 6px 12px;
   border-radius: 999px;
   cursor: pointer;
-  opacity: 0.35;
-  transition: opacity 150ms ease, border-color 150ms ease;
+  opacity: 0.55;
+  touch-action: manipulation;
+  transition: opacity 150ms ease, border-color 150ms ease, background 150ms ease;
 }
 
+.fullscreen-hud-btn[aria-pressed="true"] {
+  border-color: var(--aqua-glow);
+  background: rgba(8, 47, 73, 0.9);
+  color: #e0f2fe;
+}
+
+.fullscreen-hud-btn:hover,
+.fullscreen-hud-btn:focus-visible,
 .fullscreen-exit-btn:hover,
 .fullscreen-exit-btn:focus-visible {
   opacity: 1;
@@ -1555,13 +1690,18 @@ body {
 }
 
 @media (hover: none) {
+  .fullscreen-hud-btn,
   .fullscreen-exit-btn {
-    opacity: 0.85;
+    opacity: 0.9;
   }
 }
 
 .page-shell.is-fullscreen {
-  padding: 6px;
+  padding:
+    max(6px, env(safe-area-inset-top, 0px))
+    max(6px, env(safe-area-inset-right, 0px))
+    max(6px, env(safe-area-inset-bottom, 0px))
+    max(6px, env(safe-area-inset-left, 0px));
   gap: 0;
   height: 100dvh;
   min-height: 100dvh;
@@ -1570,7 +1710,7 @@ body {
 }
 
 .n3ds-console.is-fullscreen {
-  --fs-screen-h: min(calc((100dvh - 18px) / 2), calc((100vw - 16px) * 0.6));
+  --fs-screen-h: min(calc((100dvh - 18px) / 2), calc((100dvw - 16px) * 0.6));
   width: 100%;
   height: 100%;
   justify-content: center;
@@ -1593,7 +1733,7 @@ body {
 }
 
 .n3ds-console.is-fullscreen .top-deck-row,
-.n3ds-console.is-fullscreen .bottom-controls-row {
+.n3ds-console.is-fullscreen:not(.fs-controls-visible) .bottom-controls-row {
   display: flex;
   justify-content: center;
   width: 100%;
@@ -1609,6 +1749,7 @@ body {
 .n3ds-console.is-fullscreen .screen-bottom {
   width: calc(var(--fs-screen-h) * 4 / 3);
   height: var(--fs-screen-h);
+  min-block-size: 0;
   border-radius: 2px;
 }
 
@@ -1616,9 +1757,9 @@ body {
 .n3ds-console.is-fullscreen .speaker-grille,
 .n3ds-console.is-fullscreen .lid-right-col,
 .n3ds-console.is-fullscreen .n3ds-hinge,
-.n3ds-console.is-fullscreen .shoulder-strip,
-.n3ds-console.is-fullscreen .side-controls,
-.n3ds-console.is-fullscreen .bottom-sys-strip,
+.n3ds-console.is-fullscreen:not(.fs-controls-visible) .shoulder-strip,
+.n3ds-console.is-fullscreen:not(.fs-controls-visible) .side-controls,
+.n3ds-console.is-fullscreen:not(.fs-controls-visible) .bottom-sys-strip,
 .n3ds-console.is-fullscreen .top-status-bar,
 .n3ds-console.is-fullscreen .emu-back-home-btn,
 .page-shell.is-fullscreen .utility-bar,
@@ -1626,6 +1767,146 @@ body {
 .page-shell.is-fullscreen .doc-section,
 .page-shell.is-fullscreen .site-footer {
   display: none !important;
+}
+
+.n3ds-console.is-fullscreen.fs-controls-visible {
+  --fs-screen-h: min(calc((100dvh - 310px) / 2), calc((100dvw - 24px) * 0.6));
+  justify-content: flex-start;
+  padding-top: max(48px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
+  gap: 6px;
+}
+
+.n3ds-console.is-fullscreen.fs-controls-visible .n3ds-bottom-deck {
+  width: min(552px, 100%);
+}
+
+.n3ds-console.is-fullscreen.fs-controls-visible .bottom-controls-row {
+  width: 100%;
+}
+
+.n3ds-console.is-fullscreen.fs-controls-visible .power-well {
+  display: none;
+}
+
+@media (max-width: 374px) {
+  .n3ds-console.is-fullscreen.fs-controls-visible {
+    --fs-screen-h: min(calc((100dvh - 375px) / 2), calc((100dvw - 20px) * 0.6));
+  }
+}
+
+@media (orientation: landscape) {
+  .n3ds-console.is-fullscreen.fs-controls-visible {
+    --fs-screen-h: min(calc((100dvh - 64px) / 2), calc((100dvw - 300px) * 0.6));
+    padding-top: max(6px, env(safe-area-inset-top, 0px));
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .n3ds-console.is-fullscreen.fs-controls-visible .n3ds-bottom-deck {
+    width: 100%;
+  }
+
+  .n3ds-console.is-fullscreen.fs-controls-visible .bottom-controls-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr);
+    grid-template-areas: "left-pad bottom-screen right-pad";
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding-inline: max(8px, env(safe-area-inset-left, 0px)) max(8px, env(safe-area-inset-right, 0px));
+  }
+
+  .n3ds-console.is-fullscreen.fs-controls-visible .bottom-screen-bezel {
+    grid-area: bottom-screen;
+  }
+
+  .n3ds-console.is-fullscreen.fs-controls-visible .side-left {
+    grid-area: left-pad;
+    justify-self: start;
+    width: auto;
+    flex-direction: row;
+    gap: 10px;
+    background: rgba(15, 23, 42, 0.72);
+    padding: 8px 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(51, 65, 85, 0.65);
+  }
+
+  .n3ds-console.is-fullscreen.fs-controls-visible .side-right {
+    grid-area: right-pad;
+    justify-self: end;
+    width: auto;
+    background: rgba(15, 23, 42, 0.72);
+    padding: 8px 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(51, 65, 85, 0.65);
+  }
+
+  .n3ds-console.is-fullscreen.fs-controls-visible .shoulder-strip {
+    position: fixed;
+    top: max(52px, env(safe-area-inset-top, 0px));
+    left: max(10px, env(safe-area-inset-left, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
+    z-index: 30;
+    margin: 0;
+    padding: 0;
+    pointer-events: none;
+  }
+
+  .n3ds-console.is-fullscreen.fs-controls-visible .shoulder-pair {
+    pointer-events: auto;
+    flex: 0 0 auto;
+  }
+
+  .n3ds-console.is-fullscreen.fs-controls-visible .shoulder-btn {
+    flex: 0 0 auto;
+    min-inline-size: 56px;
+    min-block-size: max(32px, var(--target-size));
+    padding: 4px 12px;
+  }
+
+  .n3ds-console.is-fullscreen.fs-controls-visible .bottom-sys-strip {
+    margin-top: 4px;
+  }
+
+  .n3ds-console.is-fullscreen.fs-controls-visible .sys-pill-btn,
+  .n3ds-console.is-fullscreen.fs-controls-visible .sys-home-btn {
+    min-block-size: max(32px, var(--target-size));
+    padding: 4px 14px;
+  }
+
+  .n3ds-console.is-fullscreen .home-mini-bar {
+    padding: 2px 6px;
+    font-size: 9px;
+  }
+
+  .n3ds-console.is-fullscreen .home-grid {
+    gap: 4px;
+    padding: 4px 6px;
+  }
+
+  .n3ds-console.is-fullscreen .slot-card {
+    min-height: 0;
+    padding: 3px 2px;
+    gap: 2px;
+  }
+
+  .n3ds-console.is-fullscreen .slot-icon-frame {
+    width: 28px;
+    height: 28px;
+  }
+
+  .n3ds-console.is-fullscreen .home-dock {
+    padding: 4px 6px;
+    gap: 6px;
+  }
+
+  .n3ds-console.is-fullscreen .home-dock .dock-btn {
+    min-block-size: 26px;
+    padding: 3px 6px;
+    font-size: 10px;
+  }
 }
 
 /* ==========================================================================
@@ -1681,6 +1962,13 @@ body {
   cursor: pointer;
 }
 
+.table-wrapper {
+  overflow: auto;
+  max-inline-size: 100%;
+  container-type: inline-size;
+  border-radius: 8px;
+}
+
 .controls-map-table {
   width: 100%;
   border-collapse: collapse;
@@ -1689,6 +1977,54 @@ body {
   border: 1px solid #1e293b;
   border-radius: 8px;
   overflow: hidden;
+}
+
+@container (width < 430px) {
+  .controls-map-table,
+  .controls-map-table thead,
+  .controls-map-table tbody,
+  .controls-map-table tr,
+  .controls-map-table th,
+  .controls-map-table td {
+    display: block;
+  }
+
+  .controls-map-table thead {
+    display: none;
+  }
+
+  .controls-map-table tr {
+    border-bottom: 1px solid #1e293b;
+    padding: 6px 8px;
+  }
+
+  .controls-map-table tr:last-child {
+    border-bottom: 0;
+  }
+
+  .controls-map-table tbody th {
+    background: transparent;
+    color: #93c5fd;
+    border-bottom: 1px solid rgba(30, 41, 59, 0.8);
+    padding: 4px 0 6px;
+  }
+
+  .controls-map-table td {
+    border-bottom: 0;
+    padding: 4px 0;
+  }
+
+  .controls-map-table td:nth-child(2)::before {
+    content: var(--label-2, "Teclado") ": ";
+    font-weight: 700;
+    color: #93c5fd;
+  }
+
+  .controls-map-table td:nth-child(3)::before {
+    content: var(--label-3, "Gamepad / Mouse") ": ";
+    font-weight: 700;
+    color: #93c5fd;
+  }
 }
 
 .controls-map-table caption {
@@ -1726,7 +2062,7 @@ body {
    ========================================================================== */
 
 .n3ds-dialog {
-  width: min(500px, calc(100vw - 24px));
+  width: min(500px, calc(100dvw - 24px));
   max-height: calc(100dvh - 32px);
   padding: 0;
   border: 1.5px solid #475569;
@@ -1822,6 +2158,7 @@ dialog::backdrop {
 
 .save-entry-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -1830,6 +2167,7 @@ dialog::backdrop {
   background: #0f172a;
   border: 1px solid #1e293b;
   font-size: 12px;
+  min-width: 0;
 }
 
 .save-entry-path {
@@ -1838,6 +2176,8 @@ dialog::backdrop {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  flex: 1 1 160px;
 }
 
 .save-entry-meta {
@@ -1870,25 +2210,187 @@ dialog::backdrop {
 }
 
 /* ==========================================================================
-   Responsividade Mobile & Forced Colors
+   Responsividade Mobile, Touch Gamepad & Forced Colors
    ========================================================================== */
 
-@media (max-width: 560px) {
+@media (pointer: coarse) {
+  .n3ds-console {
+    width: min(620px, 100%);
+  }
+
+  .bottom-controls-row {
+    grid-template-columns: minmax(118px, auto) minmax(0, 1fr) minmax(118px, auto);
+  }
+
+  .shoulder-btn {
+    min-block-size: var(--target-size);
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 8px;
+  }
+
+  .circle-pad-well {
+    width: 64px;
+    height: 64px;
+  }
+
+  .circle-pad-thumb {
+    width: 44px;
+    height: 44px;
+  }
+
+  .dpad {
+    grid-template-columns: repeat(3, 34px);
+    grid-template-rows: repeat(3, 34px);
+  }
+
+  .dpad-btn {
+    min-inline-size: 34px;
+    min-block-size: 34px;
+    font-size: 12px;
+  }
+
+  .abxy-cluster {
+    grid-template-columns: repeat(3, 36px);
+    grid-template-rows: repeat(3, 36px);
+    gap: 3px;
+  }
+
+  .face-btn {
+    width: 36px;
+    height: 36px;
+    min-inline-size: 36px;
+    min-block-size: 36px;
+    font-size: 13px;
+  }
+
+  .sys-pill-btn,
+  .sys-home-btn {
+    min-block-size: var(--target-size);
+    font-size: 11px;
+    padding: 6px 16px;
+  }
+}
+
+@container console (inline-size < 520px) {
+  .n3ds-top-lid,
+  .n3ds-bottom-deck {
+    padding: 8px 10px 10px;
+  }
+
   .top-deck-row {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .speaker-grille,
-  .lid-right-col {
+  .lid-right-col,
+  .power-well {
     display: none;
+  }
+
+  .shoulder-strip {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .shoulder-pair {
+    flex: 1;
+    gap: 6px;
+  }
+
+  .shoulder-btn {
+    flex: 1;
+    min-block-size: 38px;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 8px;
   }
 
   .bottom-controls-row {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    grid-template-areas:
+      "bottom-screen bottom-screen"
+      "left-pad      right-pad";
+    gap: 10px;
   }
 
-  .side-controls {
-    display: none;
+  .bottom-screen-bezel {
+    grid-area: bottom-screen;
+    max-width: 100%;
+  }
+
+  .side-left {
+    grid-area: left-pad;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    width: 100%;
+    gap: 8px;
+    background: rgba(9, 13, 22, 0.38);
+    padding: 8px 6px;
+    border-radius: 14px;
+    border: 1px solid rgba(51, 65, 85, 0.55);
+  }
+
+  .side-right {
+    grid-area: right-pad;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    background: rgba(9, 13, 22, 0.38);
+    padding: 8px 6px;
+    border-radius: 14px;
+    border: 1px solid rgba(51, 65, 85, 0.55);
+  }
+
+  .circle-pad-well {
+    width: 60px;
+    height: 60px;
+    flex-shrink: 0;
+  }
+
+  .circle-pad-thumb {
+    width: 42px;
+    height: 42px;
+  }
+
+  .dpad {
+    grid-template-columns: repeat(3, 34px);
+    grid-template-rows: repeat(3, 34px);
+  }
+
+  .dpad-btn {
+    min-inline-size: 34px;
+    min-block-size: 34px;
+    font-size: 12px;
+  }
+
+  .abxy-cluster {
+    grid-template-columns: repeat(3, 36px);
+    grid-template-rows: repeat(3, 36px);
+    gap: 3px;
+  }
+
+  .face-btn {
+    width: 36px;
+    height: 36px;
+    min-inline-size: 36px;
+    min-block-size: 36px;
+    font-size: 13px;
+  }
+
+  .bottom-sys-strip {
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .sys-pill-btn,
+  .sys-home-btn {
+    min-block-size: 38px;
+    font-size: 11px;
+    padding: 6px 14px;
+    flex: 1;
+    max-width: 120px;
   }
 
   .home-grid {
@@ -1904,6 +2406,113 @@ dialog::backdrop {
   .slot-icon-frame {
     width: 38px;
     height: 38px;
+  }
+
+  .dock-btn {
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+}
+
+@container console (inline-size < 360px) {
+  .bottom-controls-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .side-left {
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 4px;
+  }
+
+  .side-right {
+    padding: 8px 4px;
+  }
+
+  .circle-pad-well {
+    width: 58px;
+    height: 58px;
+  }
+
+  .circle-pad-thumb {
+    width: 40px;
+    height: 40px;
+  }
+
+  .dpad {
+    grid-template-columns: repeat(3, 32px);
+    grid-template-rows: repeat(3, 32px);
+  }
+
+  .dpad-btn {
+    min-inline-size: 32px;
+    min-block-size: 32px;
+  }
+
+  .abxy-cluster {
+    grid-template-columns: repeat(3, 32px);
+    grid-template-rows: repeat(3, 32px);
+    gap: 2px;
+  }
+
+  .face-btn {
+    width: 32px;
+    height: 32px;
+    min-inline-size: 32px;
+    min-block-size: 32px;
+    font-size: 12px;
+  }
+}
+
+/* Fallback for browsers without container query support */
+@supports not (container-type: inline-size) {
+  @media (max-width: 560px) {
+    .top-deck-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .speaker-grille,
+    .lid-right-col,
+    .power-well {
+      display: none;
+    }
+
+    .bottom-controls-row {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-areas:
+        "bottom-screen bottom-screen"
+        "left-pad      right-pad";
+      gap: 10px;
+    }
+
+    .bottom-screen-bezel {
+      grid-area: bottom-screen;
+      max-width: 100%;
+    }
+
+    .side-left {
+      grid-area: left-pad;
+      flex-direction: row;
+      justify-content: space-around;
+      width: 100%;
+    }
+
+    .side-right {
+      grid-area: right-pad;
+      justify-content: center;
+      width: 100%;
+    }
+  }
+}
+
+@media (max-width: 380px) {
+  .page-shell {
+    padding-inline: max(8px, env(safe-area-inset-left, 0px)) max(8px, env(safe-area-inset-right, 0px));
+  }
+
+  .doc-card {
+    padding: 14px 12px;
   }
 }
 

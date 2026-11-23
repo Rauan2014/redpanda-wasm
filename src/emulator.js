@@ -658,6 +658,7 @@ export class Panda3DSEmulator {
 
     this.#bottomCanvas.addEventListener('pointerup', endTouch);
     this.#bottomCanvas.addEventListener('pointercancel', endTouch);
+    this.#bottomCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
   /**

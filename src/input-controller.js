@@ -93,7 +93,12 @@ export function createInputController({
 }) {
   const pressedCodes = new Set();
   const virtualButtons = new Map();
+  const elementToUiKey = new Map();
+  const activeButtonPointers = new Map();
+  const dpadPointerIds = new Set();
+  const DPAD_UI_KEYS = new Set(['up', 'down', 'left', 'right']);
   let uiButtonMask = 0;
+  let lastTouchInteractionAt = -Infinity;
 
   let mouseMode = 'motion';
   let mouseMirrorDpad = true;
@@ -166,8 +171,30 @@ export function createInputController({
     return { mouseMode, mouseMirrorDpad, gamepadLayout };
   }
 
+  function recomputeUiButtonMask() {
+    let mask = 0;
+    const activeKeys = new Set();
+    for (const keys of activeButtonPointers.values()) {
+      for (const key of keys) {
+        activeKeys.add(key);
+        const btn = virtualButtons.get(key);
+        if (btn) mask |= btn.mask;
+      }
+    }
+    uiButtonMask = mask;
+    for (const [uiKey, btn] of virtualButtons) {
+      if (activeKeys.has(uiKey)) {
+        btn.element.classList.add('is-pressed');
+      } else if ((prevDomMask & btn.mask) === 0) {
+        btn.element.classList.remove('is-pressed');
+      }
+    }
+  }
+
   function clearAllLatched() {
     pressedCodes.clear();
+    activeButtonPointers.clear();
+    dpadPointerIds.clear();
     uiButtonMask = 0;
     padDragActive = false;
     padDragPointerId = null;
@@ -184,29 +211,122 @@ export function createInputController({
   function registerVirtualButton(uiKey, mask, element) {
     if (!element) return;
     virtualButtons.set(uiKey, { mask, element });
+    elementToUiKey.set(element, uiKey);
 
-    let activePointerId = null;
     const press = (e) => {
       if (e.button && e.button !== 0) return;
-      activePointerId = e.pointerId ?? 'mouse';
-      uiButtonMask |= mask;
-      element.classList.add('is-pressed');
+      const pid = e.pointerId ?? 'mouse';
+      if (e.pointerType === 'touch') {
+        lastTouchInteractionAt = performance.now();
+        try {
+          navigator.vibrate?.(8);
+        } catch {
+          // Ignore vibration API blocks
+        }
+      }
+      if (DPAD_UI_KEYS.has(uiKey)) {
+        dpadPointerIds.add(pid);
+      } else {
+        dpadPointerIds.delete(pid);
+      }
+      activeButtonPointers.set(pid, new Set([uiKey]));
+      recomputeUiButtonMask();
     };
-    const release = () => {
-      if (activePointerId === null) return;
-      activePointerId = null;
-      uiButtonMask &= ~mask;
+    const release = (e) => {
+      const pid = e?.pointerId ?? 'mouse';
+      if (!activeButtonPointers.has(pid)) return;
+      activeButtonPointers.delete(pid);
+      dpadPointerIds.delete(pid);
+      recomputeUiButtonMask();
     };
 
     element.addEventListener('pointerdown', press);
     element.addEventListener('pointerup', release);
     element.addEventListener('pointercancel', release);
-    element.addEventListener('pointerleave', release);
+    element.addEventListener('pointerleave', (e) => {
+      if (e.pointerType === 'touch') return;
+      release(e);
+    });
+    element.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
   for (const [uiKey, cfg] of Object.entries(controlElements || {})) {
     registerVirtualButton(uiKey, cfg.mask, cfg.element);
   }
+
+  const dpadContainer = controlElements?.up?.element?.closest('.dpad') || null;
+
+  function getDpadKeysAtPoint(clientX, clientY) {
+    if (!dpadContainer) return new Set();
+    const rect = dpadContainer.getBoundingClientRect();
+    const maxRadius = Math.max(rect.width, rect.height) * 0.95;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = clientX - cx;
+    const dy = clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist > maxRadius) return new Set();
+    const deadzone = Math.min(rect.width, rect.height) * 0.12;
+    if (dist <= deadzone) return new Set();
+
+    const keys = new Set();
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+    if (absX >= absY * 0.42) {
+      keys.add(dx < 0 ? 'left' : 'right');
+    }
+    if (absY >= absX * 0.42) {
+      keys.add(dy < 0 ? 'up' : 'down');
+    }
+    return keys;
+  }
+
+  function findVirtualButtonKeyAt(clientX, clientY) {
+    let el = document.elementFromPoint(clientX, clientY);
+    while (el) {
+      const uiKey = elementToUiKey.get(el);
+      if (uiKey) return uiKey;
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  window.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') {
+      lastTouchInteractionAt = performance.now();
+    }
+  }, { passive: true, capture: true });
+
+  window.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'touch') return;
+    lastTouchInteractionAt = performance.now();
+    const pid = e.pointerId;
+    if (!activeButtonPointers.has(pid)) return;
+    if (dpadPointerIds.has(pid)) {
+      activeButtonPointers.set(pid, getDpadKeysAtPoint(e.clientX, e.clientY));
+    } else {
+      const hitKey = findVirtualButtonKeyAt(e.clientX, e.clientY);
+      if (hitKey && !DPAD_UI_KEYS.has(hitKey)) {
+        activeButtonPointers.set(pid, new Set([hitKey]));
+      } else {
+        activeButtonPointers.set(pid, new Set());
+      }
+    }
+    recomputeUiButtonMask();
+  }, { passive: true });
+
+  const releaseWindowButtonPointer = (e) => {
+    if (e.pointerType === 'touch') {
+      lastTouchInteractionAt = performance.now();
+    }
+    const pid = e.pointerId ?? 'mouse';
+    if (!activeButtonPointers.has(pid)) return;
+    activeButtonPointers.delete(pid);
+    dpadPointerIds.delete(pid);
+    recomputeUiButtonMask();
+  };
+  window.addEventListener('pointerup', releaseWindowButtonPointer);
+  window.addEventListener('pointercancel', releaseWindowButtonPointer);
 
   // --------------------------------------------------------------------------
   // Direct Circle Pad Pointer Drag
@@ -256,9 +376,18 @@ export function createInputController({
       padDragActive = true;
       padDragPointerId = e.pointerId;
       padDragNavLatch = '';
-      circlePadWell.setPointerCapture?.(e.pointerId);
+      if (e.pointerType === 'touch') {
+        lastTouchInteractionAt = performance.now();
+      }
+      try {
+        circlePadWell.setPointerCapture?.(e.pointerId);
+      } catch {
+        // Ignore invalid synthetic pointerId
+      }
       updatePadDragFromPointer(e.clientX, e.clientY);
     });
+
+    circlePadWell.addEventListener('contextmenu', (e) => e.preventDefault());
 
     circlePadWell.addEventListener('pointermove', (e) => {
       if (!padDragActive || (padDragPointerId !== null && e.pointerId !== padDragPointerId)) return;
@@ -282,6 +411,7 @@ export function createInputController({
   // Mouse Movement Directional ("Direcional move com o mouse mexendo")
   // --------------------------------------------------------------------------
   function handleMouseMotion(e) {
+    if (e.pointerType === 'touch') return;
     if (isModalOpen() || mouseMode === 'off' || padDragActive) return;
 
     // Avoid interfering when user is actively touching/dragging bottom screen canvas
@@ -349,6 +479,8 @@ export function createInputController({
   window.addEventListener('mousemove', (e) => {
     // Handles programmatic MouseEvent('mousemove') dispatches that omit PointerEvent
     if (window.PointerEvent && e instanceof PointerEvent) return;
+    if (e.sourceCapabilities?.firesTouchEvents) return;
+    if (performance.now() - lastTouchInteractionAt < 800) return;
     handleMouseMotion(e);
   }, { passive: true });
 
