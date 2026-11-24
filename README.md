@@ -1,3 +1,5 @@
+**Português (PT-BR)** | [English](README.en.md)
+
 # Panda3DS Web — Nintendo 3DS HOME Menu
 
 Emulador de Nintendo 3DS rodando 100% no navegador (client-side via WebAssembly e WebGL2), com front-end inspirado no HOME Menu do Nintendo 3DS e configuração pronta para deploy estático na Vercel.
